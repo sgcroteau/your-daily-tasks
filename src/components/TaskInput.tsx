@@ -1,8 +1,9 @@
-import { useState, KeyboardEvent } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
+import { Task } from "@/types/task";
 
 interface TaskInputProps {
-  onAddTask: (title: string) => void;
+  onAddTask: (task: Omit<Task, "id" | "createdAt">) => void;
 }
 
 const TaskInput = ({ onAddTask }: TaskInputProps) => {
@@ -10,12 +11,19 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
 
   const handleSubmit = () => {
     if (value.trim()) {
-      onAddTask(value.trim());
+      onAddTask({
+        title: value.trim(),
+        description: "",
+        status: "todo",
+        dueDate: null,
+        completed: false,
+        notes: [],
+      });
       setValue("");
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleSubmit();
     }

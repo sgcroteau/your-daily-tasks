@@ -1,18 +1,14 @@
+import { Task } from "@/types/task";
 import TaskItem from "./TaskItem";
-
-interface Task {
-  id: string;
-  title: string;
-  completed: boolean;
-}
 
 interface TaskListProps {
   tasks: Task[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onOpen: (task: Task) => void;
 }
 
-const TaskList = ({ tasks, onToggle, onDelete }: TaskListProps) => {
+const TaskList = ({ tasks, onToggle, onDelete, onOpen }: TaskListProps) => {
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -45,7 +41,12 @@ const TaskList = ({ tasks, onToggle, onDelete }: TaskListProps) => {
           className="task-item-enter"
           style={{ animationDelay: `${index * 50}ms` }}
         >
-          <TaskItem task={task} onToggle={onToggle} onDelete={onDelete} />
+          <TaskItem 
+            task={task} 
+            onToggle={onToggle} 
+            onDelete={onDelete}
+            onOpen={onOpen}
+          />
         </div>
       ))}
     </div>

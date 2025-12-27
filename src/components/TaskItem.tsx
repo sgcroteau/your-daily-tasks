@@ -1,24 +1,22 @@
 import { useState } from "react";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Trash2, ChevronRight, AlertCircle } from "lucide-react";
+import { format, isPast, isToday } from "date-fns";
+import { Task, STATUS_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
-
-interface Task {
-  id: string;
-  title: string;
-  completed: boolean;
-}
 
 interface TaskItemProps {
   task: Task;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onOpen: (task: Task) => void;
 }
 
-const TaskItem = ({ task, onToggle, onDelete }: TaskItemProps) => {
+const TaskItem = ({ task, onToggle, onDelete, onOpen }: TaskItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
 
-  const handleToggle = () => {
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!task.completed) {
       setJustCompleted(true);
       setTimeout(() => setJustCompleted(false), 400);
@@ -26,15 +24,20 @@ const TaskItem = ({ task, onToggle, onDelete }: TaskItemProps) => {
     onToggle(task.id);
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsDeleting(true);
     setTimeout(() => onDelete(task.id), 200);
   };
 
+  const isOverdue = task.dueDate && isPast(task.dueDate) && !isToday(task.dueDate) && !task.completed;
+  const isDueToday = task.dueDate && isToday(task.dueDate);
+
   return (
     <div
+      onClick={() => onOpen(task)}
       className={cn(
-        "group flex items-center gap-4 p-4 bg-card border border-border rounded-lg transition-all duration-200 hover:shadow-hover hover:border-primary/20",
+        "group flex items-center gap-4 p-4 bg-card border border-border rounded-lg transition-all duration-200 hover:shadow-hover hover:border-primary/20 cursor-pointer",
         isDeleting && "task-item-exit"
       )}
     >
@@ -51,21 +54,57 @@ const TaskItem = ({ task, onToggle, onDelete }: TaskItemProps) => {
         {task.completed && <Check className="w-3.5 h-3.5 text-primary-foreground" />}
       </button>
 
-      <span
-        className={cn(
-          "flex-1 text-foreground transition-all duration-200",
-          task.completed && "line-through text-muted-foreground"
-        )}
-      >
-        {task.title}
-      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "text-foreground transition-all duration-200 truncate",
+              task.completed && "line-through text-muted-foreground"
+            )}
+          >
+            {task.title}
+          </span>
+          {task.notes.length > 0 && (
+            <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+              {task.notes.length} note{task.notes.length !== 1 && "s"}
+            </span>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-2 mt-1">
+          <span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_CONFIG[task.status].color)}>
+            {STATUS_CONFIG[task.status].label}
+          </span>
+          
+          {task.dueDate && (
+            <span className={cn(
+              "text-xs flex items-center gap-1",
+              isOverdue && "text-destructive",
+              isDueToday && "text-accent-foreground font-medium",
+              !isOverdue && !isDueToday && "text-muted-foreground"
+            )}>
+              {isOverdue && <AlertCircle className="w-3 h-3" />}
+              {format(task.dueDate, "MMM d")}
+            </span>
+          )}
+          
+          {task.description && (
+            <span className="text-xs text-muted-foreground truncate max-w-32">
+              {task.description}
+            </span>
+          )}
+        </div>
+      </div>
 
-      <button
-        onClick={handleDelete}
-        className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all duration-200"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={handleDelete}
+          className="opacity-0 group-hover:opacity-100 p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-all duration-200"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <ChevronRight className="w-4 h-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+      </div>
     </div>
   );
 };
