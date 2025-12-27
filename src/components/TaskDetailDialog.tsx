@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { format, parse, isValid } from "date-fns";
 import { Calendar as CalendarIcon, X, Plus } from "lucide-react";
 import {
@@ -31,13 +31,54 @@ interface TaskDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUpdate: (task: Task) => void;
+  onNavigateToTask?: (taskId: string) => void;
+  findTaskById?: (taskId: string) => Task | null;
 }
+
+// Helper to collect all notes from a task and its subtasks recursively
+const collectAllNotes = (task: Task, taskTitleMap: Map<string, string>): TaskNote[] => {
+  let allNotes: TaskNote[] = [...task.notes];
+  
+  const collectFromSubTasks = (subTasks: Task[]) => {
+    subTasks.forEach((st) => {
+      // Update the title map dynamically
+      taskTitleMap.set(st.id, st.title);
+      allNotes = [...allNotes, ...st.notes];
+      if (st.subTasks.length > 0) {
+        collectFromSubTasks(st.subTasks);
+      }
+    });
+  };
+  
+  collectFromSubTasks(task.subTasks);
+  return allNotes;
+};
+
+// Helper to get dynamic task titles
+const buildTaskTitleMap = (task: Task): Map<string, string> => {
+  const map = new Map<string, string>();
+  map.set(task.id, task.title);
+  
+  const traverse = (subTasks: Task[]) => {
+    subTasks.forEach((st) => {
+      map.set(st.id, st.title);
+      if (st.subTasks.length > 0) {
+        traverse(st.subTasks);
+      }
+    });
+  };
+  
+  traverse(task.subTasks);
+  return map;
+};
 
 const TaskDetailDialog = ({
   task,
   open,
   onOpenChange,
   onUpdate,
+  onNavigateToTask,
+  findTaskById,
 }: TaskDetailDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -102,12 +143,15 @@ const TaskDetailDialog = ({
   };
 
   const handleAddNote = (content: string, noteAttachments: TaskAttachment[]) => {
+    if (!task) return;
     const newNote: TaskNote = {
       id: crypto.randomUUID(),
       content,
       attachments: noteAttachments,
       createdAt: new Date(),
       updatedAt: new Date(),
+      originTaskId: task.id,
+      originTaskTitle: title, // Use current title
     };
     setNotes((prev) => [newNote, ...prev]);
   };
@@ -149,9 +193,45 @@ const TaskDetailDialog = ({
     setSubTasks((prev) => prev.filter((st) => st.id !== subTaskId));
   };
 
+  const handleNavigateToSubTask = (taskId: string) => {
+    // Save current changes first
+    if (task) {
+      onUpdate({
+        ...task,
+        title,
+        description,
+        status,
+        dueDate,
+        notes,
+        attachments,
+        subTasks,
+        completed: status === "done",
+      });
+    }
+    // Navigate to the sub-task
+    onNavigateToTask?.(taskId);
+  };
+
   if (!task) return null;
 
   const canAddSubTasks = task.depth < MAX_DEPTH;
+
+  // Build current task state for note collection
+  const currentTaskState: Task = {
+    ...task,
+    title,
+    notes,
+    subTasks,
+  };
+
+  // Build title map from current state (dynamic titles)
+  const taskTitleMap = buildTaskTitleMap(currentTaskState);
+
+  // Collect all notes including from subtasks, with updated titles
+  const allNotesWithTitles = collectAllNotes(currentTaskState, taskTitleMap).map((note) => ({
+    ...note,
+    originTaskTitle: taskTitleMap.get(note.originTaskId) || note.originTaskTitle,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -307,9 +387,13 @@ const TaskDetailDialog = ({
           {/* Notes */}
           <TaskNotes
             notes={notes}
+            currentTaskId={task.id}
+            currentTaskTitle={title}
+            allNotes={allNotesWithTitles}
             onAddNote={handleAddNote}
             onUpdateNote={handleUpdateNote}
             onDeleteNote={handleDeleteNote}
+            onNavigateToTask={handleNavigateToSubTask}
           />
 
           {/* Actions */}

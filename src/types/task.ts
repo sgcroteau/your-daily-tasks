@@ -15,6 +15,8 @@ export interface TaskNote {
   attachments: TaskAttachment[];
   createdAt: Date;
   updatedAt: Date;
+  originTaskId: string;
+  originTaskTitle: string;
 }
 
 export interface Task {
