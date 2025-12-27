@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
@@ -44,8 +44,8 @@ const Index = () => {
   };
 
   const updateTask = (updatedTask: Task) => {
-    const updateTaskRecursive = (tasks: Task[], updated: Task): Task[] => {
-      return tasks.map((task) => {
+    const updateTaskRecursive = (taskList: Task[], updated: Task): Task[] => {
+      return taskList.map((task) => {
         if (task.id === updated.id) {
           return updated;
         }
@@ -60,6 +60,10 @@ const Index = () => {
     };
     
     setTasks((prev) => updateTaskRecursive(prev, updatedTask));
+    // Update selectedTask if it's the same task
+    if (selectedTask?.id === updatedTask.id) {
+      setSelectedTask(updatedTask);
+    }
   };
 
   const reorderTasks = (newTasks: Task[]) => {
@@ -74,12 +78,38 @@ const Index = () => {
     );
   };
 
-  const countTasks = (tasks: Task[]): { total: number; completed: number } => {
+  // Find a task by ID recursively through all tasks and subtasks
+  const findTaskById = useCallback((taskId: string): Task | null => {
+    const searchInTasks = (taskList: Task[]): Task | null => {
+      for (const task of taskList) {
+        if (task.id === taskId) {
+          return task;
+        }
+        if (task.subTasks.length > 0) {
+          const found = searchInTasks(task.subTasks);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return searchInTasks(tasks);
+  }, [tasks]);
+
+  // Navigate to a specific task (used for clicking on sub-task note links)
+  const navigateToTask = useCallback((taskId: string) => {
+    const task = findTaskById(taskId);
+    if (task) {
+      setSelectedTask(task);
+      // Dialog stays open, just switches to the new task
+    }
+  }, [findTaskById]);
+
+  const countTasks = (taskList: Task[]): { total: number; completed: number } => {
     let total = 0;
     let completed = 0;
     
-    const count = (taskList: Task[]) => {
-      taskList.forEach((task) => {
+    const count = (list: Task[]) => {
+      list.forEach((task) => {
         total++;
         if (task.completed) completed++;
         if (task.subTasks.length > 0) {
@@ -88,7 +118,7 @@ const Index = () => {
       });
     };
     
-    count(tasks);
+    count(taskList);
     return { total, completed };
   };
 
@@ -134,6 +164,8 @@ const Index = () => {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           onUpdate={updateTask}
+          onNavigateToTask={navigateToTask}
+          findTaskById={findTaskById}
         />
       </div>
     </div>
