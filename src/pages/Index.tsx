@@ -2,22 +2,20 @@ import { useState } from "react";
 import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
+import TaskDetailDialog from "@/components/TaskDetailDialog";
+import { Task } from "@/types/task";
 import { CheckCircle2 } from "lucide-react";
-
-interface Task {
-  id: string;
-  title: string;
-  completed: boolean;
-}
 
 const Index = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const addTask = (title: string) => {
+  const addTask = (taskData: Omit<Task, "id" | "createdAt">) => {
     const newTask: Task = {
+      ...taskData,
       id: crypto.randomUUID(),
-      title,
-      completed: false,
+      createdAt: new Date(),
     };
     setTasks((prev) => [newTask, ...prev]);
   };
@@ -25,13 +23,30 @@ const Index = () => {
   const toggleTask = (id: string) => {
     setTasks((prev) =>
       prev.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
+        task.id === id
+          ? { 
+              ...task, 
+              completed: !task.completed,
+              status: !task.completed ? "done" : "todo"
+            }
+          : task
       )
     );
   };
 
   const deleteTask = (id: string) => {
     setTasks((prev) => prev.filter((task) => task.id !== id));
+  };
+
+  const openTask = (task: Task) => {
+    setSelectedTask(task);
+    setDialogOpen(true);
+  };
+
+  const updateTask = (updatedTask: Task) => {
+    setTasks((prev) =>
+      prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+    );
   };
 
   const completedCount = tasks.filter((t) => t.completed).length;
@@ -64,8 +79,17 @@ const Index = () => {
             tasks={tasks}
             onToggle={toggleTask}
             onDelete={deleteTask}
+            onOpen={openTask}
           />
         </main>
+
+        {/* Task Detail Dialog */}
+        <TaskDetailDialog
+          task={selectedTask}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onUpdate={updateTask}
+        />
       </div>
     </div>
   );
