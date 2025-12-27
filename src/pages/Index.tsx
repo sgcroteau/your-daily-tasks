@@ -44,12 +44,55 @@ const Index = () => {
   };
 
   const updateTask = (updatedTask: Task) => {
+    const updateTaskRecursive = (tasks: Task[], updated: Task): Task[] => {
+      return tasks.map((task) => {
+        if (task.id === updated.id) {
+          return updated;
+        }
+        if (task.subTasks.length > 0) {
+          return {
+            ...task,
+            subTasks: updateTaskRecursive(task.subTasks, updated),
+          };
+        }
+        return task;
+      });
+    };
+    
+    setTasks((prev) => updateTaskRecursive(prev, updatedTask));
+  };
+
+  const reorderTasks = (newTasks: Task[]) => {
+    setTasks(newTasks);
+  };
+
+  const updateSubTasks = (taskId: string, subTasks: Task[]) => {
     setTasks((prev) =>
-      prev.map((task) => (task.id === updatedTask.id ? updatedTask : task))
+      prev.map((task) =>
+        task.id === taskId ? { ...task, subTasks } : task
+      )
     );
   };
 
-  const completedCount = tasks.filter((t) => t.completed).length;
+  const countTasks = (tasks: Task[]): { total: number; completed: number } => {
+    let total = 0;
+    let completed = 0;
+    
+    const count = (taskList: Task[]) => {
+      taskList.forEach((task) => {
+        total++;
+        if (task.completed) completed++;
+        if (task.subTasks.length > 0) {
+          count(task.subTasks);
+        }
+      });
+    };
+    
+    count(tasks);
+    return { total, completed };
+  };
+
+  const { total, completed: completedCount } = countTasks(tasks);
 
   return (
     <div className="min-h-screen bg-background">
@@ -71,8 +114,8 @@ const Index = () => {
         <main className="space-y-6">
           <TaskInput onAddTask={addTask} />
           
-          {tasks.length > 0 && (
-            <TaskStats total={tasks.length} completed={completedCount} />
+          {total > 0 && (
+            <TaskStats total={total} completed={completedCount} />
           )}
           
           <TaskList
@@ -80,6 +123,8 @@ const Index = () => {
             onToggle={toggleTask}
             onDelete={deleteTask}
             onOpen={openTask}
+            onReorder={reorderTasks}
+            onUpdateSubTasks={updateSubTasks}
           />
         </main>
 

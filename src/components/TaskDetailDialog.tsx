@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, X } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import TaskNotes from "./TaskNotes";
-import { Task, TaskStatus, STATUS_CONFIG, TaskNote } from "@/types/task";
+import FileAttachment from "./FileAttachment";
+import { Task, TaskStatus, STATUS_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskDetailDialogProps {
@@ -44,7 +45,10 @@ const TaskDetailDialog = ({
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [dueDateInput, setDueDateInput] = useState("");
   const [notes, setNotes] = useState<TaskNote[]>([]);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
+  const [subTasks, setSubTasks] = useState<Task[]>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [newSubTaskTitle, setNewSubTaskTitle] = useState("");
 
   useEffect(() => {
     if (task) {
@@ -54,6 +58,8 @@ const TaskDetailDialog = ({
       setDueDate(task.dueDate);
       setDueDateInput(task.dueDate ? format(task.dueDate, "MM/dd/yyyy") : "");
       setNotes(task.notes);
+      setAttachments(task.attachments);
+      setSubTasks(task.subTasks);
     }
   }, [task]);
 
@@ -66,6 +72,8 @@ const TaskDetailDialog = ({
         status,
         dueDate,
         notes,
+        attachments,
+        subTasks,
         completed: status === "done",
       });
       onOpenChange(false);
@@ -74,7 +82,6 @@ const TaskDetailDialog = ({
 
   const handleDateInputChange = (value: string) => {
     setDueDateInput(value);
-    // Try to parse as MM/dd/yyyy
     const parsed = parse(value, "MM/dd/yyyy", new Date());
     if (isValid(parsed)) {
       setDueDate(parsed);
@@ -94,21 +101,22 @@ const TaskDetailDialog = ({
     setDueDateInput("");
   };
 
-  const handleAddNote = (content: string) => {
+  const handleAddNote = (content: string, noteAttachments: TaskAttachment[]) => {
     const newNote: TaskNote = {
       id: crypto.randomUUID(),
       content,
+      attachments: noteAttachments,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     setNotes((prev) => [newNote, ...prev]);
   };
 
-  const handleUpdateNote = (noteId: string, content: string) => {
+  const handleUpdateNote = (noteId: string, content: string, noteAttachments: TaskAttachment[]) => {
     setNotes((prev) =>
       prev.map((note) =>
         note.id === noteId
-          ? { ...note, content, updatedAt: new Date() }
+          ? { ...note, content, attachments: noteAttachments, updatedAt: new Date() }
           : note
       )
     );
@@ -118,7 +126,32 @@ const TaskDetailDialog = ({
     setNotes((prev) => prev.filter((note) => note.id !== noteId));
   };
 
+  const handleAddSubTask = () => {
+    if (newSubTaskTitle.trim() && task && task.depth < MAX_DEPTH) {
+      const newSubTask: Task = {
+        ...createEmptyTask(task.id, task.depth + 1),
+        id: crypto.randomUUID(),
+        title: newSubTaskTitle.trim(),
+        createdAt: new Date(),
+      };
+      setSubTasks((prev) => [...prev, newSubTask]);
+      setNewSubTaskTitle("");
+    }
+  };
+
+  const handleUpdateSubTask = (updatedSubTask: Task) => {
+    setSubTasks((prev) =>
+      prev.map((st) => (st.id === updatedSubTask.id ? updatedSubTask : st))
+    );
+  };
+
+  const handleDeleteSubTask = (subTaskId: string) => {
+    setSubTasks((prev) => prev.filter((st) => st.id !== subTaskId));
+  };
+
   if (!task) return null;
+
+  const canAddSubTasks = task.depth < MAX_DEPTH;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -126,6 +159,11 @@ const TaskDetailDialog = ({
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-foreground">
             Edit Task
+            {task.depth > 0 && (
+              <span className="ml-2 text-xs text-muted-foreground font-normal">
+                (Level {task.depth + 1})
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -216,6 +254,56 @@ const TaskDetailDialog = ({
             </div>
           </div>
 
+          {/* Task Attachments */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Attachments</label>
+            <FileAttachment
+              attachments={attachments}
+              onAdd={(a) => setAttachments((prev) => [...prev, a])}
+              onRemove={(id) => setAttachments((prev) => prev.filter((a) => a.id !== id))}
+            />
+          </div>
+
+          {/* Sub-tasks */}
+          {canAddSubTasks && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-foreground">
+                Sub-tasks {subTasks.length > 0 && `(${subTasks.length})`}
+              </label>
+              
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newSubTaskTitle}
+                  onChange={(e) => setNewSubTaskTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAddSubTask()}
+                  placeholder="Add a sub-task..."
+                  className="flex-1 px-3 py-2 bg-secondary/50 border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                />
+                <button
+                  onClick={handleAddSubTask}
+                  disabled={!newSubTaskTitle.trim()}
+                  className="p-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {subTasks.length > 0 && (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {subTasks.map((st) => (
+                    <SubTaskItem
+                      key={st.id}
+                      subTask={st}
+                      onUpdate={handleUpdateSubTask}
+                      onDelete={handleDeleteSubTask}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Notes */}
           <TaskNotes
             notes={notes}
@@ -240,6 +328,81 @@ const TaskDetailDialog = ({
         </div>
       </DialogContent>
     </Dialog>
+  );
+};
+
+interface SubTaskItemProps {
+  subTask: Task;
+  onUpdate: (task: Task) => void;
+  onDelete: (id: string) => void;
+}
+
+const SubTaskItem = ({ subTask, onUpdate, onDelete }: SubTaskItemProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState(subTask.title);
+
+  const handleSave = () => {
+    if (title.trim()) {
+      onUpdate({ ...subTask, title: title.trim() });
+      setIsEditing(false);
+    }
+  };
+
+  const toggleComplete = () => {
+    onUpdate({
+      ...subTask,
+      completed: !subTask.completed,
+      status: !subTask.completed ? "done" : "todo",
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2 p-2 bg-secondary/30 border border-border/50 rounded-md group">
+      <button
+        onClick={toggleComplete}
+        className={cn(
+          "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+          subTask.completed
+            ? "bg-primary border-primary"
+            : "border-muted-foreground/40 hover:border-primary/60"
+        )}
+      >
+        {subTask.completed && (
+          <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </button>
+
+      {isEditing ? (
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+          className="flex-1 px-2 py-1 bg-background border border-border rounded text-sm text-foreground focus:outline-none"
+          autoFocus
+        />
+      ) : (
+        <span
+          onClick={() => setIsEditing(true)}
+          className={cn(
+            "flex-1 text-sm cursor-pointer",
+            subTask.completed && "line-through text-muted-foreground"
+          )}
+        >
+          {subTask.title}
+        </span>
+      )}
+
+      <button
+        onClick={() => onDelete(subTask.id)}
+        className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
   );
 };
 

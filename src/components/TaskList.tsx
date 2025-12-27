@@ -1,14 +1,52 @@
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Task } from "@/types/task";
-import TaskItem from "./TaskItem";
+import DraggableTaskItem from "./DraggableTaskItem";
 
 interface TaskListProps {
   tasks: Task[];
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onOpen: (task: Task) => void;
+  onReorder: (tasks: Task[]) => void;
+  onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
 }
 
-const TaskList = ({ tasks, onToggle, onDelete, onOpen }: TaskListProps) => {
+const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks }: TaskListProps) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = tasks.findIndex((t) => t.id === active.id);
+      const newIndex = tasks.findIndex((t) => t.id === over.id);
+      onReorder(arrayMove(tasks, oldIndex, newIndex));
+    }
+  };
+
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -34,22 +72,31 @@ const TaskList = ({ tasks, onToggle, onDelete, onOpen }: TaskListProps) => {
   }
 
   return (
-    <div className="space-y-3">
-      {tasks.map((task, index) => (
-        <div
-          key={task.id}
-          className="task-item-enter"
-          style={{ animationDelay: `${index * 50}ms` }}
-        >
-          <TaskItem 
-            task={task} 
-            onToggle={onToggle} 
-            onDelete={onDelete}
-            onOpen={onOpen}
-          />
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-3">
+          {tasks.map((task, index) => (
+            <div
+              key={task.id}
+              className="task-item-enter"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <DraggableTaskItem
+                task={task}
+                onToggle={onToggle}
+                onDelete={onDelete}
+                onOpen={onOpen}
+                onUpdateSubTasks={onUpdateSubTasks}
+              />
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      </SortableContext>
+    </DndContext>
   );
 };
 
