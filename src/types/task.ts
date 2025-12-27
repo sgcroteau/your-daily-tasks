@@ -1,8 +1,18 @@
 export type TaskStatus = "todo" | "in-progress" | "blocked" | "done";
 
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  type: string;
+  url: string;
+  size: number;
+  createdAt: Date;
+}
+
 export interface TaskNote {
   id: string;
   content: string;
+  attachments: TaskAttachment[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +25,10 @@ export interface Task {
   dueDate: Date | null;
   completed: boolean;
   notes: TaskNote[];
+  attachments: TaskAttachment[];
+  subTasks: Task[];
+  parentId: string | null;
+  depth: number;
   createdAt: Date;
 }
 
@@ -24,3 +38,18 @@ export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }>
   "blocked": { label: "Blocked", color: "bg-destructive/10 text-destructive" },
   "done": { label: "Done", color: "bg-primary/10 text-primary" },
 };
+
+export const MAX_DEPTH = 3;
+
+export const createEmptyTask = (parentId: string | null = null, depth: number = 0): Omit<Task, "id" | "createdAt"> => ({
+  title: "",
+  description: "",
+  status: "todo",
+  dueDate: null,
+  completed: false,
+  notes: [],
+  attachments: [],
+  subTasks: [],
+  parentId,
+  depth,
+});

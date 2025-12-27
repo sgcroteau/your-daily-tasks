@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Task } from "@/types/task";
+import { Task, createEmptyTask } from "@/types/task";
 
 interface TaskInputProps {
   onAddTask: (task: Omit<Task, "id" | "createdAt">) => void;
@@ -12,12 +12,8 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
   const handleSubmit = () => {
     if (value.trim()) {
       onAddTask({
+        ...createEmptyTask(),
         title: value.trim(),
-        description: "",
-        status: "todo",
-        dueDate: null,
-        completed: false,
-        notes: [],
       });
       setValue("");
     }
