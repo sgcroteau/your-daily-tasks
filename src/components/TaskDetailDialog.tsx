@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, X, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -377,6 +377,7 @@ const TaskDetailDialog = ({
                       subTask={st}
                       onUpdate={handleUpdateSubTask}
                       onDelete={handleDeleteSubTask}
+                      onNavigateToTask={handleNavigateToSubTask}
                       depth={st.depth}
                       rootTaskDepth={task.depth}
                     />
@@ -421,6 +422,7 @@ interface HierarchicalSubTaskItemProps {
   subTask: Task;
   onUpdate: (task: Task) => void;
   onDelete: (id: string) => void;
+  onNavigateToTask: (taskId: string) => void;
   depth: number;
   rootTaskDepth: number;
 }
@@ -429,6 +431,7 @@ const HierarchicalSubTaskItem = ({
   subTask, 
   onUpdate, 
   onDelete, 
+  onNavigateToTask,
   depth,
   rootTaskDepth,
 }: HierarchicalSubTaskItemProps) => {
@@ -555,6 +558,15 @@ const HierarchicalSubTaskItem = ({
           </span>
         )}
 
+        {/* Navigate to sub-task button */}
+        <button
+          onClick={() => onNavigateToTask(subTask.id)}
+          className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all"
+          title="Open sub-task details"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </button>
+
         {/* Add sub-sub-task button */}
         {canAddSubTasks && (
           <button
@@ -584,6 +596,7 @@ const HierarchicalSubTaskItem = ({
               subTask={nestedSubTask}
               onUpdate={handleUpdateNestedSubTask}
               onDelete={handleDeleteNestedSubTask}
+              onNavigateToTask={onNavigateToTask}
               depth={nestedSubTask.depth}
               rootTaskDepth={rootTaskDepth}
             />
