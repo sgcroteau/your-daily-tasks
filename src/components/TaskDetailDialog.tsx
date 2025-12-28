@@ -369,14 +369,16 @@ const TaskDetailDialog = ({
                 </button>
               </div>
 
-              {subTasks.length > 0 && (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+          {subTasks.length > 0 && (
+                <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
                   {subTasks.map((st) => (
-                    <SubTaskItem
+                    <HierarchicalSubTaskItem
                       key={st.id}
                       subTask={st}
                       onUpdate={handleUpdateSubTask}
                       onDelete={handleDeleteSubTask}
+                      depth={st.depth}
+                      rootTaskDepth={task.depth}
                     />
                   ))}
                 </div>
@@ -415,15 +417,28 @@ const TaskDetailDialog = ({
   );
 };
 
-interface SubTaskItemProps {
+interface HierarchicalSubTaskItemProps {
   subTask: Task;
   onUpdate: (task: Task) => void;
   onDelete: (id: string) => void;
+  depth: number;
+  rootTaskDepth: number;
 }
 
-const SubTaskItem = ({ subTask, onUpdate, onDelete }: SubTaskItemProps) => {
+const HierarchicalSubTaskItem = ({ 
+  subTask, 
+  onUpdate, 
+  onDelete, 
+  depth,
+  rootTaskDepth,
+}: HierarchicalSubTaskItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(subTask.title);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [newSubTaskTitle, setNewSubTaskTitle] = useState("");
+
+  const canAddSubTasks = subTask.depth < MAX_DEPTH;
+  const relativeDepth = depth - rootTaskDepth;
 
   const handleSave = () => {
     if (title.trim()) {
@@ -440,52 +455,165 @@ const SubTaskItem = ({ subTask, onUpdate, onDelete }: SubTaskItemProps) => {
     });
   };
 
-  return (
-    <div className="flex items-center gap-2 p-2 bg-secondary/30 border border-border/50 rounded-md group">
-      <button
-        onClick={toggleComplete}
-        className={cn(
-          "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-          subTask.completed
-            ? "bg-primary border-primary"
-            : "border-muted-foreground/40 hover:border-primary/60"
-        )}
-      >
-        {subTask.completed && (
-          <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </button>
+  const handleAddNestedSubTask = () => {
+    if (newSubTaskTitle.trim() && canAddSubTasks) {
+      const newSubTask: Task = {
+        ...createEmptyTask(subTask.id, subTask.depth + 1),
+        id: crypto.randomUUID(),
+        title: newSubTaskTitle.trim(),
+        createdAt: new Date(),
+      };
+      onUpdate({
+        ...subTask,
+        subTasks: [...subTask.subTasks, newSubTask],
+      });
+      setNewSubTaskTitle("");
+    }
+  };
 
-      {isEditing ? (
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={(e) => e.key === "Enter" && handleSave()}
-          className="flex-1 px-2 py-1 bg-background border border-border rounded text-sm text-foreground focus:outline-none"
-          autoFocus
-        />
-      ) : (
-        <span
-          onClick={() => setIsEditing(true)}
+  const handleUpdateNestedSubTask = (updatedNestedSubTask: Task) => {
+    onUpdate({
+      ...subTask,
+      subTasks: subTask.subTasks.map((st) =>
+        st.id === updatedNestedSubTask.id ? updatedNestedSubTask : st
+      ),
+    });
+  };
+
+  const handleDeleteNestedSubTask = (nestedSubTaskId: string) => {
+    onUpdate({
+      ...subTask,
+      subTasks: subTask.subTasks.filter((st) => st.id !== nestedSubTaskId),
+    });
+  };
+
+  return (
+    <div 
+      className="space-y-1"
+      style={{ marginLeft: relativeDepth > 0 ? `${relativeDepth * 1}rem` : 0 }}
+    >
+      <div className="flex items-center gap-2 p-2 bg-secondary/30 border border-border/50 rounded-md group">
+        {/* Expand/Collapse button for nested sub-tasks */}
+        {subTask.subTasks.length > 0 ? (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex-shrink-0 w-4 h-4 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg
+              className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-90")}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        ) : (
+          <div className="w-4 h-4" />
+        )}
+
+        <button
+          onClick={toggleComplete}
           className={cn(
-            "flex-1 text-sm cursor-pointer",
-            subTask.completed && "line-through text-muted-foreground"
+            "flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+            subTask.completed
+              ? "bg-primary border-primary"
+              : "border-muted-foreground/40 hover:border-primary/60"
           )}
         >
-          {subTask.title}
-        </span>
-      )}
+          {subTask.completed && (
+            <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </button>
 
-      <button
-        onClick={() => onDelete(subTask.id)}
-        className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+        {isEditing ? (
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={handleSave}
+            onKeyDown={(e) => e.key === "Enter" && handleSave()}
+            className="flex-1 px-2 py-1 bg-background border border-border rounded text-sm text-foreground focus:outline-none"
+            autoFocus
+          />
+        ) : (
+          <span
+            onClick={() => setIsEditing(true)}
+            className={cn(
+              "flex-1 text-sm cursor-pointer",
+              subTask.completed && "line-through text-muted-foreground"
+            )}
+          >
+            {subTask.title}
+            {subTask.subTasks.length > 0 && (
+              <span className="ml-1 text-xs text-muted-foreground">
+                ({subTask.subTasks.length})
+              </span>
+            )}
+          </span>
+        )}
+
+        {/* Add sub-sub-task button */}
+        {canAddSubTasks && (
+          <button
+            onClick={() => setIsExpanded(true)}
+            className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-all"
+            title="Add nested sub-task"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        <button
+          onClick={() => onDelete(subTask.id)}
+          className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Nested sub-tasks and add input */}
+      {isExpanded && (
+        <div className="space-y-1">
+          {/* Nested sub-tasks */}
+          {subTask.subTasks.map((nestedSubTask) => (
+            <HierarchicalSubTaskItem
+              key={nestedSubTask.id}
+              subTask={nestedSubTask}
+              onUpdate={handleUpdateNestedSubTask}
+              onDelete={handleDeleteNestedSubTask}
+              depth={nestedSubTask.depth}
+              rootTaskDepth={rootTaskDepth}
+            />
+          ))}
+
+          {/* Add nested sub-task input */}
+          {canAddSubTasks && (
+            <div 
+              className="flex gap-2 mt-1"
+              style={{ marginLeft: `${(relativeDepth + 1) * 1}rem` }}
+            >
+              <input
+                type="text"
+                value={newSubTaskTitle}
+                onChange={(e) => setNewSubTaskTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddNestedSubTask()}
+                placeholder={`Add sub-task to "${subTask.title.slice(0, 15)}${subTask.title.length > 15 ? '...' : ''}"...`}
+                className="flex-1 px-2 py-1.5 bg-secondary/30 border border-border/50 rounded text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 focus:border-primary transition-all"
+              />
+              <button
+                onClick={handleAddNestedSubTask}
+                disabled={!newSubTaskTitle.trim()}
+                className="p-1.5 bg-primary/80 text-primary-foreground rounded hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
