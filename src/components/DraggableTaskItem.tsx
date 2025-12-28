@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useSortable } from "@dnd-kit/sortable";
+import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { Task, STATUS_CONFIG } from "@/types/task";
@@ -18,6 +20,11 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
   const [isDeleting, setIsDeleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const {
     attributes,
@@ -53,9 +60,22 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
     setIsExpanded(!isExpanded);
   };
 
+  const handleSubTaskDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = task.subTasks.findIndex((t) => t.id === active.id);
+      const newIndex = task.subTasks.findIndex((t) => t.id === over.id);
+      const reordered = arrayMove(task.subTasks, oldIndex, newIndex);
+      onUpdateSubTasks(task.id, reordered);
+    }
+  };
+
   const isOverdue = task.dueDate && isPast(task.dueDate) && !isToday(task.dueDate) && !task.completed;
   const isDueToday = task.dueDate && isToday(task.dueDate);
   const hasSubTasks = task.subTasks.length > 0;
+
+  // Calculate indentation based on depth (each level adds more margin)
+  const depthIndent = task.depth > 0 ? `ml-${Math.min(task.depth * 6, 18)}` : "";
 
   return (
     <div
@@ -71,8 +91,9 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
         onClick={() => onOpen(task)}
         className={cn(
           "group flex items-center gap-3 p-4 bg-card border border-border rounded-lg transition-all duration-200 hover:shadow-hover hover:border-primary/20 cursor-pointer",
-          task.depth > 0 && "ml-6 border-l-2 border-l-primary/30"
+          task.depth > 0 && "border-l-2 border-l-primary/30"
         )}
+        style={{ marginLeft: task.depth > 0 ? `${task.depth * 1.5}rem` : 0 }}
       >
         {/* Drag handle */}
         <button
@@ -173,33 +194,41 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
         </div>
       </div>
 
-      {/* Nested subtasks */}
+      {/* Nested subtasks with their own DndContext */}
       {hasSubTasks && isExpanded && (
-        <div className="mt-2 space-y-2">
-          {task.subTasks.map((subTask) => (
-            <DraggableTaskItem
-              key={subTask.id}
-              task={subTask}
-              onToggle={(id) => {
-                const updated = task.subTasks.map(st =>
-                  st.id === id ? { ...st, completed: !st.completed, status: !st.completed ? "done" as const : "todo" as const } : st
-                );
-                onUpdateSubTasks(task.id, updated);
-              }}
-              onDelete={(id) => {
-                const updated = task.subTasks.filter(st => st.id !== id);
-                onUpdateSubTasks(task.id, updated);
-              }}
-              onOpen={onOpen}
-              onUpdateSubTasks={(parentId, newSubTasks) => {
-                const updated = task.subTasks.map(st =>
-                  st.id === parentId ? { ...st, subTasks: newSubTasks } : st
-                );
-                onUpdateSubTasks(task.id, updated);
-              }}
-            />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleSubTaskDragEnd}
+        >
+          <SortableContext items={task.subTasks.map(st => st.id)} strategy={verticalListSortingStrategy}>
+            <div className="mt-2 space-y-2">
+              {task.subTasks.map((subTask) => (
+                <DraggableTaskItem
+                  key={subTask.id}
+                  task={subTask}
+                  onToggle={(id) => {
+                    const updated = task.subTasks.map(st =>
+                      st.id === id ? { ...st, completed: !st.completed, status: !st.completed ? "done" as const : "todo" as const } : st
+                    );
+                    onUpdateSubTasks(task.id, updated);
+                  }}
+                  onDelete={(id) => {
+                    const updated = task.subTasks.filter(st => st.id !== id);
+                    onUpdateSubTasks(task.id, updated);
+                  }}
+                  onOpen={onOpen}
+                  onUpdateSubTasks={(parentId, newSubTasks) => {
+                    const updated = task.subTasks.map(st =>
+                      st.id === parentId ? { ...st, subTasks: newSubTasks } : st
+                    );
+                    onUpdateSubTasks(task.id, updated);
+                  }}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );
