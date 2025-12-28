@@ -3,11 +3,13 @@ import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
+import TaskBackupControls from "@/components/TaskBackupControls";
+import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { Task } from "@/types/task";
 import { CheckCircle2 } from "lucide-react";
 
 const Index = () => {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -129,8 +131,16 @@ const Index = () => {
       <div className="max-w-xl mx-auto px-4 py-12 sm:py-20">
         {/* Header */}
         <header className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-primary/10 rounded-2xl mb-4">
-            <CheckCircle2 className="w-7 h-7 text-primary" />
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-primary/10 rounded-2xl">
+              <CheckCircle2 className="w-7 h-7 text-primary" />
+            </div>
+            <TaskBackupControls
+              onExport={exportTasks}
+              onImport={importTasks}
+              onClear={clearTasks}
+              taskCount={total}
+            />
           </div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">
             Tasks
