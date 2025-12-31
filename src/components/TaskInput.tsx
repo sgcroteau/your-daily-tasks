@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Plus, ChevronDown, ChevronUp, Calendar } from "lucide-react";
-import { Task, TaskStatus, STATUS_CONFIG, createEmptyTask } from "@/types/task";
+import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree } from "lucide-react";
+import { Task, TaskStatus, TaskNote, STATUS_CONFIG, createEmptyTask } from "@/types/task";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Popover,
@@ -23,23 +24,74 @@ interface TaskInputProps {
   onAddTask: (task: Omit<Task, "id" | "createdAt">) => void;
 }
 
+interface SubTaskInput {
+  id: string;
+  title: string;
+}
+
+interface NoteInput {
+  id: string;
+  content: string;
+}
+
 const TaskInput = ({ onAddTask }: TaskInputProps) => {
   const [title, setTitle] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [dueDate, setDueDate] = useState<Date | null>(null);
+  const [subTasks, setSubTasks] = useState<SubTaskInput[]>([]);
+  const [notes, setNotes] = useState<NoteInput[]>([]);
+  const [newSubTask, setNewSubTask] = useState("");
+  const [newNote, setNewNote] = useState("");
 
   const resetForm = () => {
     setTitle("");
     setDescription("");
     setStatus("todo");
     setDueDate(null);
+    setSubTasks([]);
+    setNotes([]);
+    setNewSubTask("");
+    setNewNote("");
     setExpanded(false);
   };
 
   const handleSubmit = () => {
     if (title.trim()) {
+      const now = new Date();
+      
+      // Convert sub-task inputs to actual Task objects
+      const subTaskObjects: Task[] = subTasks
+        .filter(st => st.title.trim())
+        .map(st => ({
+          id: crypto.randomUUID(),
+          title: st.title.trim(),
+          description: "",
+          status: "todo" as TaskStatus,
+          dueDate: null,
+          completed: false,
+          notes: [],
+          attachments: [],
+          subTasks: [],
+          parentId: null, // Will be set by parent
+          depth: 1,
+          createdAt: now,
+        }));
+
+      // Convert note inputs to actual TaskNote objects
+      const noteObjects: TaskNote[] = notes
+        .filter(n => n.content.trim())
+        .map(n => ({
+          id: crypto.randomUUID(),
+          content: n.content.trim(),
+          attachments: [],
+          createdAt: now,
+          updatedAt: now,
+          originTaskId: "", // Will be set after task creation
+          originTaskTitle: title.trim(),
+        }));
+
       onAddTask({
         ...createEmptyTask(),
         title: title.trim(),
@@ -47,6 +99,8 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
         status,
         dueDate,
         completed: status === "done",
+        subTasks: subTaskObjects,
+        notes: noteObjects,
       });
       resetForm();
     }
@@ -56,6 +110,28 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
     if (e.key === "Enter" && !expanded) {
       handleSubmit();
     }
+  };
+
+  const addSubTask = () => {
+    if (newSubTask.trim()) {
+      setSubTasks([...subTasks, { id: crypto.randomUUID(), title: newSubTask.trim() }]);
+      setNewSubTask("");
+    }
+  };
+
+  const removeSubTask = (id: string) => {
+    setSubTasks(subTasks.filter(st => st.id !== id));
+  };
+
+  const addNote = () => {
+    if (newNote.trim()) {
+      setNotes([...notes, { id: crypto.randomUUID(), content: newNote.trim() }]);
+      setNewNote("");
+    }
+  };
+
+  const removeNote = (id: string) => {
+    setNotes(notes.filter(n => n.id !== id));
   };
 
   return (
@@ -161,6 +237,108 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+          </div>
+
+          {/* Sub-tasks */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-2">
+              <ListTree className="w-4 h-4" />
+              Sub-tasks
+            </label>
+            
+            {/* Existing sub-tasks */}
+            {subTasks.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {subTasks.map((subTask) => (
+                  <div
+                    key={subTask.id}
+                    className="flex items-center gap-2 bg-muted/50 rounded-md px-3 py-2"
+                  >
+                    <span className="flex-1 text-sm">{subTask.title}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSubTask(subTask.id)}
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add new sub-task */}
+            <div className="flex gap-2">
+              <Input
+                value={newSubTask}
+                onChange={(e) => setNewSubTask(e.target.value)}
+                placeholder="Add a sub-task..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addSubTask();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={addSubTask}
+                disabled={!newSubTask.trim()}
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Notes/Comments */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Notes
+            </label>
+            
+            {/* Existing notes */}
+            {notes.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {notes.map((note) => (
+                  <div
+                    key={note.id}
+                    className="flex items-start gap-2 bg-muted/50 rounded-md px-3 py-2"
+                  >
+                    <span className="flex-1 text-sm whitespace-pre-wrap">{note.content}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeNote(note.id)}
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Add new note */}
+            <div className="flex gap-2">
+              <Textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Add a note..."
+                className="resize-none min-h-[60px]"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={addNote}
+                disabled={!newNote.trim()}
+                className="shrink-0 self-end"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
