@@ -4,6 +4,7 @@ import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
 import TaskBackupControls from "@/components/TaskBackupControls";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { Task } from "@/types/task";
 import { CheckCircle2 } from "lucide-react";
@@ -141,6 +142,7 @@ const Index = () => {
               onClear={clearTasks}
               taskCount={total}
             />
+            <ThemeToggle />
           </div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">
             Tasks
