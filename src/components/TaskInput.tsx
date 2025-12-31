@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree } from "lucide-react";
-import { Task, TaskStatus, TaskNote, STATUS_CONFIG, createEmptyTask } from "@/types/task";
+import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight } from "lucide-react";
+import { Task, TaskStatus, TaskNote, TaskAttachment, STATUS_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import FileAttachment from "@/components/FileAttachment";
 import {
   Popover,
   PopoverContent,
@@ -17,6 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -27,6 +33,8 @@ interface TaskInputProps {
 interface SubTaskInput {
   id: string;
   title: string;
+  subTasks: SubTaskInput[];
+  expanded: boolean;
 }
 
 interface NoteInput {
@@ -42,6 +50,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [subTasks, setSubTasks] = useState<SubTaskInput[]>([]);
   const [notes, setNotes] = useState<NoteInput[]>([]);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [newSubTask, setNewSubTask] = useState("");
   const [newNote, setNewNote] = useState("");
 
@@ -52,34 +61,39 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
     setDueDate(null);
     setSubTasks([]);
     setNotes([]);
+    setAttachments([]);
     setNewSubTask("");
     setNewNote("");
     setExpanded(false);
+  };
+
+  // Convert SubTaskInput tree to Task tree
+  const convertSubTasksToTasks = (inputs: SubTaskInput[], depth: number): Task[] => {
+    const now = new Date();
+    return inputs
+      .filter(st => st.title.trim())
+      .map(st => ({
+        id: crypto.randomUUID(),
+        title: st.title.trim(),
+        description: "",
+        status: "todo" as TaskStatus,
+        dueDate: null,
+        completed: false,
+        notes: [],
+        attachments: [],
+        subTasks: convertSubTasksToTasks(st.subTasks, depth + 1),
+        parentId: null,
+        depth,
+        createdAt: now,
+      }));
   };
 
   const handleSubmit = () => {
     if (title.trim()) {
       const now = new Date();
       
-      // Convert sub-task inputs to actual Task objects
-      const subTaskObjects: Task[] = subTasks
-        .filter(st => st.title.trim())
-        .map(st => ({
-          id: crypto.randomUUID(),
-          title: st.title.trim(),
-          description: "",
-          status: "todo" as TaskStatus,
-          dueDate: null,
-          completed: false,
-          notes: [],
-          attachments: [],
-          subTasks: [],
-          parentId: null, // Will be set by parent
-          depth: 1,
-          createdAt: now,
-        }));
+      const subTaskObjects = convertSubTasksToTasks(subTasks, 1);
 
-      // Convert note inputs to actual TaskNote objects
       const noteObjects: TaskNote[] = notes
         .filter(n => n.content.trim())
         .map(n => ({
@@ -88,7 +102,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
           attachments: [],
           createdAt: now,
           updatedAt: now,
-          originTaskId: "", // Will be set after task creation
+          originTaskId: "",
           originTaskTitle: title.trim(),
         }));
 
@@ -101,6 +115,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
         completed: status === "done",
         subTasks: subTaskObjects,
         notes: noteObjects,
+        attachments,
       });
       resetForm();
     }
@@ -112,15 +127,74 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
     }
   };
 
-  const addSubTask = () => {
-    if (newSubTask.trim()) {
-      setSubTasks([...subTasks, { id: crypto.randomUUID(), title: newSubTask.trim() }]);
-      setNewSubTask("");
+  const addSubTask = (parentPath: number[] = []) => {
+    if (parentPath.length === 0) {
+      if (newSubTask.trim()) {
+        setSubTasks([...subTasks, { id: crypto.randomUUID(), title: newSubTask.trim(), subTasks: [], expanded: false }]);
+        setNewSubTask("");
+      }
     }
   };
 
-  const removeSubTask = (id: string) => {
-    setSubTasks(subTasks.filter(st => st.id !== id));
+  const addNestedSubTask = (path: number[], title: string) => {
+    if (!title.trim()) return;
+    
+    const updateNested = (items: SubTaskInput[], currentPath: number[]): SubTaskInput[] => {
+      if (currentPath.length === 0) {
+        return [...items, { id: crypto.randomUUID(), title: title.trim(), subTasks: [], expanded: false }];
+      }
+      
+      const [index, ...rest] = currentPath;
+      return items.map((item, i) => {
+        if (i === index) {
+          return {
+            ...item,
+            subTasks: updateNested(item.subTasks, rest),
+          };
+        }
+        return item;
+      });
+    };
+    
+    setSubTasks(updateNested(subTasks, path));
+  };
+
+  const removeSubTask = (path: number[]) => {
+    const removeNested = (items: SubTaskInput[], currentPath: number[]): SubTaskInput[] => {
+      if (currentPath.length === 1) {
+        return items.filter((_, i) => i !== currentPath[0]);
+      }
+      
+      const [index, ...rest] = currentPath;
+      return items.map((item, i) => {
+        if (i === index) {
+          return {
+            ...item,
+            subTasks: removeNested(item.subTasks, rest),
+          };
+        }
+        return item;
+      });
+    };
+    
+    setSubTasks(removeNested(subTasks, path));
+  };
+
+  const toggleSubTaskExpanded = (path: number[]) => {
+    const toggleNested = (items: SubTaskInput[], currentPath: number[]): SubTaskInput[] => {
+      const [index, ...rest] = currentPath;
+      return items.map((item, i) => {
+        if (i === index) {
+          if (rest.length === 0) {
+            return { ...item, expanded: !item.expanded };
+          }
+          return { ...item, subTasks: toggleNested(item.subTasks, rest) };
+        }
+        return item;
+      });
+    };
+    
+    setSubTasks(toggleNested(subTasks, path));
   };
 
   const addNote = () => {
@@ -132,6 +206,59 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
 
   const removeNote = (id: string) => {
     setNotes(notes.filter(n => n.id !== id));
+  };
+
+  const addAttachment = (attachment: TaskAttachment) => {
+    setAttachments([...attachments, attachment]);
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments(attachments.filter(a => a.id !== id));
+  };
+
+  // Recursive sub-task renderer
+  const renderSubTask = (subTask: SubTaskInput, path: number[], depth: number) => {
+    const canAddChildren = depth < MAX_DEPTH - 1;
+    
+    return (
+      <div key={subTask.id} className="space-y-1">
+        <div
+          className="flex items-center gap-2 bg-muted/50 rounded-md px-3 py-2"
+          style={{ marginLeft: `${(depth) * 16}px` }}
+        >
+          {canAddChildren && (
+            <button
+              type="button"
+              onClick={() => toggleSubTaskExpanded(path)}
+              className="p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronRight className={cn("w-3 h-3 transition-transform", subTask.expanded && "rotate-90")} />
+            </button>
+          )}
+          <span className="flex-1 text-sm">{subTask.title}</span>
+          <button
+            type="button"
+            onClick={() => removeSubTask(path)}
+            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+        
+        {/* Nested sub-tasks and add input */}
+        {canAddChildren && subTask.expanded && (
+          <div className="space-y-1">
+            {subTask.subTasks.map((child, childIndex) => 
+              renderSubTask(child, [...path, childIndex], depth + 1)
+            )}
+            <NestedSubTaskInput
+              depth={depth + 1}
+              onAdd={(title) => addNestedSubTask(path, title)}
+            />
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -240,6 +367,18 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
             </div>
           </div>
 
+          {/* Attachments */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 block">
+              Attachments
+            </label>
+            <FileAttachment
+              attachments={attachments}
+              onAdd={addAttachment}
+              onRemove={removeAttachment}
+            />
+          </div>
+
           {/* Sub-tasks */}
           <div>
             <label className="text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-2">
@@ -249,26 +388,14 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
             
             {/* Existing sub-tasks */}
             {subTasks.length > 0 && (
-              <div className="space-y-2 mb-2">
-                {subTasks.map((subTask) => (
-                  <div
-                    key={subTask.id}
-                    className="flex items-center gap-2 bg-muted/50 rounded-md px-3 py-2"
-                  >
-                    <span className="flex-1 text-sm">{subTask.title}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeSubTask(subTask.id)}
-                      className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
+              <div className="space-y-1 mb-2">
+                {subTasks.map((subTask, index) => 
+                  renderSubTask(subTask, [index], 0)
+                )}
               </div>
             )}
             
-            {/* Add new sub-task */}
+            {/* Add new top-level sub-task */}
             <div className="flex gap-2">
               <Input
                 value={newSubTask}
@@ -285,7 +412,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
                 type="button"
                 variant="outline"
                 size="icon"
-                onClick={addSubTask}
+                onClick={() => addSubTask()}
                 disabled={!newSubTask.trim()}
               >
                 <Plus className="w-4 h-4" />
@@ -354,6 +481,48 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Small component for adding nested sub-tasks
+const NestedSubTaskInput = ({ depth, onAdd }: { depth: number; onAdd: (title: string) => void }) => {
+  const [value, setValue] = useState("");
+  
+  const handleAdd = () => {
+    if (value.trim()) {
+      onAdd(value.trim());
+      setValue("");
+    }
+  };
+  
+  return (
+    <div 
+      className="flex gap-2 items-center"
+      style={{ marginLeft: `${depth * 16}px` }}
+    >
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Add nested sub-task..."
+        className="h-8 text-sm"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            handleAdd();
+          }
+        }}
+      />
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8"
+        onClick={handleAdd}
+        disabled={!value.trim()}
+      >
+        <Plus className="w-3 h-3" />
+      </Button>
     </div>
   );
 };
