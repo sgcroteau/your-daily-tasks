@@ -28,6 +28,7 @@ import { format } from "date-fns";
 
 interface TaskInputProps {
   onAddTask: (task: Omit<Task, "id" | "createdAt">) => void;
+  projectId?: string | null;
 }
 
 interface SubTaskInput {
@@ -43,7 +44,7 @@ interface NoteInput {
   attachments: TaskAttachment[];
 }
 
-const TaskInput = ({ onAddTask }: TaskInputProps) => {
+const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
   const [title, setTitle] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState("");
@@ -70,7 +71,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
   };
 
   // Convert SubTaskInput tree to Task tree
-  const convertSubTasksToTasks = (inputs: SubTaskInput[], depth: number): Task[] => {
+  const convertSubTasksToTasks = (inputs: SubTaskInput[], depth: number, taskProjectId: string | null): Task[] => {
     const now = new Date();
     return inputs
       .filter(st => st.title.trim())
@@ -83,10 +84,11 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
         completed: false,
         notes: [],
         attachments: [],
-        subTasks: convertSubTasksToTasks(st.subTasks, depth + 1),
+        subTasks: convertSubTasksToTasks(st.subTasks, depth + 1, taskProjectId),
         parentId: null,
         depth,
         createdAt: now,
+        projectId: taskProjectId,
       }));
   };
 
@@ -94,7 +96,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
     if (title.trim()) {
       const now = new Date();
       
-      const subTaskObjects = convertSubTasksToTasks(subTasks, 1);
+      const subTaskObjects = convertSubTasksToTasks(subTasks, 1, projectId);
 
       const noteObjects: TaskNote[] = notes
         .filter(n => n.content.trim() || n.attachments.length > 0)
@@ -109,7 +111,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
         }));
 
       onAddTask({
-        ...createEmptyTask(),
+        ...createEmptyTask(null, 0, projectId),
         title: title.trim(),
         description: description.trim(),
         status,

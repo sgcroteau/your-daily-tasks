@@ -173,7 +173,7 @@ const TaskDetailDialog = ({
   const handleAddSubTask = () => {
     if (newSubTaskTitle.trim() && task && task.depth < MAX_DEPTH) {
       const newSubTask: Task = {
-        ...createEmptyTask(task.id, task.depth + 1),
+        ...createEmptyTask(task.id, task.depth + 1, task.projectId),
         id: crypto.randomUUID(),
         title: newSubTaskTitle.trim(),
         createdAt: new Date(),
@@ -461,7 +461,7 @@ const HierarchicalSubTaskItem = ({
   const handleAddNestedSubTask = () => {
     if (newSubTaskTitle.trim() && canAddSubTasks) {
       const newSubTask: Task = {
-        ...createEmptyTask(subTask.id, subTask.depth + 1),
+        ...createEmptyTask(subTask.id, subTask.depth + 1, subTask.projectId),
         id: crypto.randomUUID(),
         title: newSubTaskTitle.trim(),
         createdAt: new Date(),
