@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight, Paperclip } from "lucide-react";
 import { Task, TaskStatus, TaskNote, TaskAttachment, STATUS_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +40,7 @@ interface SubTaskInput {
 interface NoteInput {
   id: string;
   content: string;
+  attachments: TaskAttachment[];
 }
 
 const TaskInput = ({ onAddTask }: TaskInputProps) => {
@@ -64,6 +65,7 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
     setAttachments([]);
     setNewSubTask("");
     setNewNote("");
+    setNewNoteAttachments([]);
     setExpanded(false);
   };
 
@@ -95,11 +97,11 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
       const subTaskObjects = convertSubTasksToTasks(subTasks, 1);
 
       const noteObjects: TaskNote[] = notes
-        .filter(n => n.content.trim())
+        .filter(n => n.content.trim() || n.attachments.length > 0)
         .map(n => ({
           id: crypto.randomUUID(),
           content: n.content.trim(),
-          attachments: [],
+          attachments: n.attachments,
           createdAt: now,
           updatedAt: now,
           originTaskId: "",
@@ -197,10 +199,13 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
     setSubTasks(toggleNested(subTasks, path));
   };
 
+  const [newNoteAttachments, setNewNoteAttachments] = useState<TaskAttachment[]>([]);
+
   const addNote = () => {
-    if (newNote.trim()) {
-      setNotes([...notes, { id: crypto.randomUUID(), content: newNote.trim() }]);
+    if (newNote.trim() || newNoteAttachments.length > 0) {
+      setNotes([...notes, { id: crypto.randomUUID(), content: newNote.trim(), attachments: newNoteAttachments }]);
       setNewNote("");
+      setNewNoteAttachments([]);
     }
   };
 
@@ -433,39 +438,59 @@ const TaskInput = ({ onAddTask }: TaskInputProps) => {
                 {notes.map((note) => (
                   <div
                     key={note.id}
-                    className="flex items-start gap-2 bg-muted/50 rounded-md px-3 py-2"
+                    className="bg-muted/50 rounded-md px-3 py-2"
                   >
-                    <span className="flex-1 text-sm whitespace-pre-wrap">{note.content}</span>
-                    <button
-                      type="button"
-                      onClick={() => removeNote(note.id)}
-                      className="p-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-start gap-2">
+                      <span className="flex-1 text-sm whitespace-pre-wrap">{note.content}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeNote(note.id)}
+                        className="p-1 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    {note.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-border/50">
+                        {note.attachments.map((att) => (
+                          <div key={att.id} className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Paperclip className="w-3 h-3" />
+                            {att.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
             
             {/* Add new note */}
-            <div className="flex gap-2">
-              <Textarea
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Add a note..."
-                className="resize-none min-h-[60px]"
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Textarea
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Add a note..."
+                  className="resize-none min-h-[60px]"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={addNote}
+                  disabled={!newNote.trim() && newNoteAttachments.length === 0}
+                  className="shrink-0 self-end"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <FileAttachment
+                attachments={newNoteAttachments}
+                onAdd={(a) => setNewNoteAttachments((prev) => [...prev, a])}
+                onRemove={(id) => setNewNoteAttachments((prev) => prev.filter((a) => a.id !== id))}
+                compact
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={addNote}
-                disabled={!newNote.trim()}
-                className="shrink-0 self-end"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
             </div>
           </div>
 
