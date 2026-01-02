@@ -32,6 +32,14 @@ export interface Task {
   parentId: string | null;
   depth: number;
   createdAt: Date;
+  projectId: string | null; // null means Inbox
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: Date;
 }
 
 export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
@@ -43,7 +51,7 @@ export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }>
 
 export const MAX_DEPTH = 3;
 
-export const createEmptyTask = (parentId: string | null = null, depth: number = 0): Omit<Task, "id" | "createdAt"> => ({
+export const createEmptyTask = (parentId: string | null = null, depth: number = 0, projectId: string | null = null): Omit<Task, "id" | "createdAt"> => ({
   title: "",
   description: "",
   status: "todo",
@@ -54,4 +62,16 @@ export const createEmptyTask = (parentId: string | null = null, depth: number = 
   subTasks: [],
   parentId,
   depth,
+  projectId,
 });
+
+export const PROJECT_COLORS = [
+  "#ef4444", // red
+  "#f97316", // orange
+  "#eab308", // yellow
+  "#22c55e", // green
+  "#14b8a6", // teal
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+];

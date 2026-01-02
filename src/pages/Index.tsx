@@ -1,18 +1,53 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
 import TaskBackupControls from "@/components/TaskBackupControls";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSidebar } from "@/components/AppSidebar";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
+import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { Task } from "@/types/task";
-import { CheckCircle2 } from "lucide-react";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const Index = () => {
   const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
+  const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+
+  // Calculate task counts for sidebar
+  const taskCounts = useMemo(() => {
+    const counts = { inbox: 0, byProject: {} as Record<string, number> };
+    tasks.forEach((task) => {
+      if (task.projectId === null) {
+        counts.inbox++;
+      } else {
+        counts.byProject[task.projectId] = (counts.byProject[task.projectId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [tasks]);
+
+  // Filter tasks by selected project
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => task.projectId === selectedProjectId);
+  }, [tasks, selectedProjectId]);
+
+  // Handle project deletion - move tasks to inbox
+  const handleDeleteProject = (projectId: string) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.projectId === projectId ? { ...task, projectId: null } : task
+      )
+    );
+    deleteProject(projectId);
+    if (selectedProjectId === projectId) {
+      setSelectedProjectId(null);
+    }
+  };
 
   const addTask = (taskData: Omit<Task, "id" | "createdAt">) => {
     const newTask: Task = {
@@ -63,14 +98,15 @@ const Index = () => {
     };
     
     setTasks((prev) => updateTaskRecursive(prev, updatedTask));
-    // Update selectedTask if it's the same task
     if (selectedTask?.id === updatedTask.id) {
       setSelectedTask(updatedTask);
     }
   };
 
   const reorderTasks = (newTasks: Task[]) => {
-    setTasks(newTasks);
+    // Preserve tasks from other projects/inbox when reordering
+    const otherTasks = tasks.filter((t) => t.projectId !== selectedProjectId);
+    setTasks([...newTasks, ...otherTasks]);
   };
 
   const updateSubTasks = (taskId: string, subTasks: Task[]) => {
@@ -81,7 +117,6 @@ const Index = () => {
     );
   };
 
-  // Find a task by ID recursively through all tasks and subtasks
   const findTaskById = useCallback((taskId: string): Task | null => {
     const searchInTasks = (taskList: Task[]): Task | null => {
       for (const task of taskList) {
@@ -98,12 +133,10 @@ const Index = () => {
     return searchInTasks(tasks);
   }, [tasks]);
 
-  // Navigate to a specific task (used for clicking on sub-task note links)
   const navigateToTask = useCallback((taskId: string) => {
     const task = findTaskById(taskId);
     if (task) {
       setSelectedTask(task);
-      // Dialog stays open, just switches to the new task
     }
   }, [findTaskById]);
 
@@ -125,52 +158,78 @@ const Index = () => {
     return { total, completed };
   };
 
-  const { total, completed: completedCount } = countTasks(tasks);
+  const { total, completed: completedCount } = countTasks(filteredTasks);
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
+  const pageTitle = selectedProject ? selectedProject.name : "Inbox";
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-xl mx-auto px-4 py-12 sm:py-20">
-        {/* Header */}
-        <header className="text-center mb-10">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="inline-flex items-center justify-center w-14 h-14 bg-primary/10 rounded-2xl">
-              <CheckCircle2 className="w-7 h-7 text-primary" />
-            </div>
-            <TaskBackupControls
-              onExport={exportTasks}
-              onImport={importTasks}
-              onClear={clearTasks}
-              taskCount={total}
-            />
-            <ThemeToggle />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">
-            Tasks
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Stay organized, get things done
-          </p>
-        </header>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={setSelectedProjectId}
+          onAddProject={addProject}
+          onUpdateProject={updateProject}
+          onDeleteProject={handleDeleteProject}
+          taskCounts={taskCounts}
+        />
 
-        {/* Main Content */}
-        <main className="space-y-6">
-          <TaskInput onAddTask={addTask} />
-          
-          {total > 0 && (
-            <TaskStats total={total} completed={completedCount} />
-          )}
-          
-          <TaskList
-            tasks={tasks}
-            onToggle={toggleTask}
-            onDelete={deleteTask}
-            onOpen={openTask}
-            onReorder={reorderTasks}
-            onUpdateSubTasks={updateSubTasks}
-          />
+        <main className="flex-1 min-w-0">
+          {/* Header */}
+          <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+            <div className="flex items-center gap-4 px-4 py-3">
+              <SidebarTrigger />
+              <div className="flex items-center gap-2 flex-1">
+                {selectedProject && (
+                  <div
+                    className="h-3 w-3 rounded-full shrink-0"
+                    style={{ backgroundColor: selectedProject.color }}
+                  />
+                )}
+                <h1 className="text-xl font-semibold text-foreground truncate">
+                  {pageTitle}
+                </h1>
+              </div>
+              <TaskBackupControls
+                onExport={exportTasks}
+                onImport={importTasks}
+                onClear={clearTasks}
+                taskCount={tasks.length}
+              />
+              <ThemeToggle />
+            </div>
+          </header>
+
+          {/* Content */}
+          <div className="max-w-xl mx-auto px-4 py-8">
+            <div className="space-y-6">
+              <TaskInput onAddTask={addTask} projectId={selectedProjectId} />
+              
+              {total > 0 && (
+                <TaskStats total={total} completed={completedCount} />
+              )}
+              
+              <TaskList
+                tasks={filteredTasks}
+                onToggle={toggleTask}
+                onDelete={deleteTask}
+                onOpen={openTask}
+                onReorder={reorderTasks}
+                onUpdateSubTasks={updateSubTasks}
+              />
+
+              {filteredTasks.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">
+                    No tasks in {pageTitle.toLowerCase()}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </main>
 
-        {/* Task Detail Dialog */}
         <TaskDetailDialog
           task={selectedTask}
           open={dialogOpen}
@@ -180,7 +239,7 @@ const Index = () => {
           findTaskById={findTaskById}
         />
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
