@@ -1,10 +1,5 @@
 import { Task } from "@/types/task";
 
-export interface SearchMatch {
-  taskId: string;
-  matchLocations: ("title" | "description" | "note" | "subtask")[];
-}
-
 /**
  * Check if a string contains a search query (case-insensitive, partial match)
  */
@@ -13,10 +8,9 @@ const matchesQuery = (text: string, query: string): boolean => {
 };
 
 /**
- * Recursively search through a task and all its subtasks
- * Returns true if any match is found
+ * Check if a task directly matches the query (not including children)
  */
-const searchTaskRecursive = (task: Task, query: string): boolean => {
+const taskDirectlyMatches = (task: Task, query: string): boolean => {
   // Check title
   if (matchesQuery(task.title, query)) {
     return true;
@@ -34,26 +28,42 @@ const searchTaskRecursive = (task: Task, query: string): boolean => {
     }
   }
 
-  // Check subtasks recursively
-  for (const subTask of task.subTasks) {
-    if (searchTaskRecursive(subTask, query)) {
-      return true;
-    }
-  }
-
   return false;
 };
 
 /**
+ * Recursively collect all tasks that directly match the query
+ * Returns a flat array of matching tasks (without their subtasks)
+ */
+const collectMatchingTasks = (tasks: Task[], query: string): Task[] => {
+  const results: Task[] = [];
+
+  for (const task of tasks) {
+    // If this task directly matches, add it (without subtasks to keep results clean)
+    if (taskDirectlyMatches(task, query)) {
+      results.push({ ...task, subTasks: [] });
+    }
+
+    // Always recurse into subtasks to find nested matches
+    if (task.subTasks.length > 0) {
+      const nestedMatches = collectMatchingTasks(task.subTasks, query);
+      results.push(...nestedMatches);
+    }
+  }
+
+  return results;
+};
+
+/**
  * Filter tasks based on search query
- * Returns top-level tasks that match or have matching children
+ * Returns only tasks that directly match (flattened, no nesting)
  */
 export const filterTasksBySearch = (tasks: Task[], query: string): Task[] => {
   if (!query.trim()) {
     return tasks;
   }
 
-  return tasks.filter((task) => searchTaskRecursive(task, query));
+  return collectMatchingTasks(tasks, query);
 };
 
 /**
@@ -62,10 +72,10 @@ export const filterTasksBySearch = (tasks: Task[], query: string): Task[] => {
 export const getMatchLocations = (
   task: Task,
   query: string
-): ("title" | "description" | "note" | "subtask")[] => {
+): ("title" | "description" | "note")[] => {
   if (!query.trim()) return [];
   
-  const locations: ("title" | "description" | "note" | "subtask")[] = [];
+  const locations: ("title" | "description" | "note")[] = [];
 
   if (matchesQuery(task.title, query)) {
     locations.push("title");
@@ -80,31 +90,6 @@ export const getMatchLocations = (
       locations.push("note");
       break; // Only add once
     }
-  }
-
-  // Check if any subtask matches
-  const checkSubTasks = (subTasks: Task[]): boolean => {
-    for (const subTask of subTasks) {
-      if (
-        matchesQuery(subTask.title, query) ||
-        (subTask.description && matchesQuery(subTask.description, query))
-      ) {
-        return true;
-      }
-      for (const note of subTask.notes) {
-        if (matchesQuery(note.content, query)) {
-          return true;
-        }
-      }
-      if (checkSubTasks(subTask.subTasks)) {
-        return true;
-      }
-    }
-    return false;
-  };
-
-  if (checkSubTasks(task.subTasks)) {
-    locations.push("subtask");
   }
 
   return locations;

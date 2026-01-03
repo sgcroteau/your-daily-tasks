@@ -150,11 +150,6 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
                 match in note
               </span>
             )}
-            {searchQuery && matchLocations.includes("subtask") && (
-              <span className="text-xs text-accent-foreground bg-accent px-1.5 py-0.5 rounded">
-                match in subtask
-              </span>
-            )}
             {task.notes.length > 0 && (
               <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                 {task.notes.length} note{task.notes.length !== 1 && "s"}
