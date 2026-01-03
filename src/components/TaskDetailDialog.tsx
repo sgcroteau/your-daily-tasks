@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, X, Plus, ExternalLink } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -90,6 +90,26 @@ const TaskDetailDialog = ({
   const [subTasks, setSubTasks] = useState<Task[]>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState("");
+
+  // Build parent chain for breadcrumb navigation
+  const parentChain = useMemo(() => {
+    if (!task || !task.parentId || !findTaskById) return [];
+    
+    const chain: Task[] = [];
+    let currentParentId: string | null = task.parentId;
+    
+    while (currentParentId) {
+      const parent = findTaskById(currentParentId);
+      if (parent) {
+        chain.unshift(parent); // Add to beginning for correct order
+        currentParentId = parent.parentId;
+      } else {
+        break;
+      }
+    }
+    
+    return chain;
+  }, [task, findTaskById]);
 
   useEffect(() => {
     if (task) {
@@ -236,7 +256,27 @@ const TaskDetailDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="space-y-2">
+          {/* Parent task breadcrumb */}
+          {parentChain.length > 0 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
+              {parentChain.map((parent, index) => (
+                <div key={parent.id} className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleNavigateToSubTask(parent.id)}
+                    className="hover:text-primary hover:underline transition-colors max-w-32 truncate"
+                    title={parent.title}
+                  >
+                    {parent.title}
+                  </button>
+                  <ChevronRight className="w-3 h-3 shrink-0" />
+                </div>
+              ))}
+              <span className="text-foreground font-medium truncate max-w-40" title={task.title}>
+                {task.title || "Current task"}
+              </span>
+            </div>
+          )}
           <DialogTitle className="text-lg font-semibold text-foreground">
             Edit Task
             {task.depth > 0 && (
