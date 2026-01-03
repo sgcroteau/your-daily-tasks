@@ -7,6 +7,8 @@ import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown } f
 import { format, isPast, isToday } from "date-fns";
 import { Task, STATUS_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
+import HighlightText from "./HighlightText";
+import { getMatchLocations } from "@/lib/searchUtils";
 
 interface DraggableTaskItemProps {
   task: Task;
@@ -14,9 +16,10 @@ interface DraggableTaskItemProps {
   onDelete: (id: string) => void;
   onOpen: (task: Task) => void;
   onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
+  searchQuery?: string;
 }
 
-const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks }: DraggableTaskItemProps) => {
+const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks, searchQuery = "" }: DraggableTaskItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -73,6 +76,7 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
   const isOverdue = task.dueDate && isPast(task.dueDate) && !isToday(task.dueDate) && !task.completed;
   const isDueToday = task.dueDate && isToday(task.dueDate);
   const hasSubTasks = task.subTasks.length > 0;
+  const matchLocations = getMatchLocations(task, searchQuery);
 
   // Calculate indentation based on depth (each level adds more margin)
   const depthIndent = task.depth > 0 ? `ml-${Math.min(task.depth * 6, 18)}` : "";
@@ -132,15 +136,25 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
         </button>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
+          <div className="flex items-center gap-2 flex-wrap">
+            <HighlightText
+              text={task.title}
+              query={searchQuery}
               className={cn(
-                "text-foreground transition-all duration-200 truncate",
+                "text-foreground transition-all duration-200",
                 task.completed && "line-through text-muted-foreground"
               )}
-            >
-              {task.title}
-            </span>
+            />
+            {searchQuery && matchLocations.includes("note") && (
+              <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                match in note
+              </span>
+            )}
+            {searchQuery && matchLocations.includes("subtask") && (
+              <span className="text-xs text-accent-foreground bg-accent px-1.5 py-0.5 rounded">
+                match in subtask
+              </span>
+            )}
             {task.notes.length > 0 && (
               <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                 {task.notes.length} note{task.notes.length !== 1 && "s"}
@@ -176,9 +190,11 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
             )}
             
             {task.description && (
-              <span className="text-xs text-muted-foreground truncate max-w-32">
-                {task.description}
-              </span>
+              <HighlightText
+                text={task.description}
+                query={searchQuery}
+                className="text-xs text-muted-foreground truncate max-w-32"
+              />
             )}
           </div>
         </div>
@@ -207,6 +223,7 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks 
                 <DraggableTaskItem
                   key={subTask.id}
                   task={subTask}
+                  searchQuery={searchQuery}
                   onToggle={(id) => {
                     const updated = task.subTasks.map(st =>
                       st.id === id ? { ...st, completed: !st.completed, status: !st.completed ? "done" as const : "todo" as const } : st

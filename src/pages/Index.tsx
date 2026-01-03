@@ -4,11 +4,14 @@ import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
 import TaskBackupControls from "@/components/TaskBackupControls";
+import SearchInput from "@/components/SearchInput";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
+import { useDebounce } from "@/hooks/useDebounce";
 import { Task } from "@/types/task";
+import { filterTasksBySearch } from "@/lib/searchUtils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 
 const Index = () => {
@@ -17,6 +20,8 @@ const Index = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Calculate task counts for sidebar
   const taskCounts = useMemo(() => {
@@ -31,10 +36,11 @@ const Index = () => {
     return counts;
   }, [tasks]);
 
-  // Filter tasks by selected project
+  // Filter tasks by selected project and search query
   const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => task.projectId === selectedProjectId);
-  }, [tasks, selectedProjectId]);
+    const projectTasks = tasks.filter((task) => task.projectId === selectedProjectId);
+    return filterTasksBySearch(projectTasks, debouncedSearchQuery);
+  }, [tasks, selectedProjectId, debouncedSearchQuery]);
 
   // Handle project deletion - move tasks to inbox
   const handleDeleteProject = (projectId: string) => {
@@ -204,6 +210,12 @@ const Index = () => {
           {/* Content */}
           <div className="max-w-xl mx-auto px-4 py-8">
             <div className="space-y-6">
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search tasks, notes, subtasks..."
+              />
+              
               <TaskInput onAddTask={addTask} projectId={selectedProjectId} />
               
               {total > 0 && (
@@ -217,12 +229,15 @@ const Index = () => {
                 onOpen={openTask}
                 onReorder={reorderTasks}
                 onUpdateSubTasks={updateSubTasks}
+                searchQuery={debouncedSearchQuery}
               />
 
               {filteredTasks.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground">
-                    No tasks in {pageTitle.toLowerCase()}
+                    {debouncedSearchQuery
+                      ? `No results for "${debouncedSearchQuery}"`
+                      : `No tasks in ${pageTitle.toLowerCase()}`}
                   </p>
                 </div>
               )}
