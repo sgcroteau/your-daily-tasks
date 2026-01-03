@@ -23,9 +23,10 @@ interface TaskListProps {
   onOpen: (task: Task) => void;
   onReorder: (tasks: Task[]) => void;
   onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
+  searchQuery?: string;
 }
 
-const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks }: TaskListProps) => {
+const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks, searchQuery = "" }: TaskListProps) => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -91,6 +92,7 @@ const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTas
                 onDelete={onDelete}
                 onOpen={onOpen}
                 onUpdateSubTasks={onUpdateSubTasks}
+                searchQuery={searchQuery}
               />
             </div>
           ))}
