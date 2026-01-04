@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
@@ -21,7 +22,13 @@ const Index = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
+  );
 
   // Calculate task counts for sidebar
   const taskCounts = useMemo(() => {
@@ -115,6 +122,36 @@ const Index = () => {
     setTasks([...newTasks, ...otherTasks]);
   };
 
+  const moveTaskToProject = useCallback((taskId: string, newProjectId: string | null) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId ? { ...task, projectId: newProjectId } : task
+      )
+    );
+  }, [setTasks]);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveTaskId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveTaskId(null);
+    const { active, over } = event;
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const overId = over.id as string;
+
+    // Check if dropped on a project or inbox
+    if (overId === "sidebar-inbox") {
+      moveTaskToProject(taskId, null);
+    } else if (overId.startsWith("sidebar-project-")) {
+      const projectId = overId.replace("sidebar-project-", "");
+      moveTaskToProject(taskId, projectId);
+    }
+  };
+
   const updateSubTasks = (taskId: string, subTasks: Task[]) => {
     setTasks((prev) =>
       prev.map((task) =>
@@ -168,18 +205,26 @@ const Index = () => {
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const pageTitle = selectedProject ? selectedProject.name : "Inbox";
 
+  const activeTask = activeTaskId ? findTaskById(activeTaskId) : null;
+
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onSelectProject={setSelectedProjectId}
-          onAddProject={addProject}
-          onUpdateProject={updateProject}
-          onDeleteProject={handleDeleteProject}
-          taskCounts={taskCounts}
-        />
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+            onAddProject={addProject}
+            onUpdateProject={updateProject}
+            onDeleteProject={handleDeleteProject}
+            taskCounts={taskCounts}
+            isDragging={!!activeTaskId}
+          />
 
         <main className="flex-1 min-w-0">
           {/* Header */}
@@ -252,8 +297,18 @@ const Index = () => {
           onUpdate={updateTask}
           onNavigateToTask={navigateToTask}
           findTaskById={findTaskById}
+          projects={projects}
         />
-      </div>
+
+        <DragOverlay>
+          {activeTask ? (
+            <div className="bg-card border border-primary rounded-lg p-3 shadow-lg opacity-80">
+              <span className="text-sm font-medium">{activeTask.title}</span>
+            </div>
+          ) : null}
+        </DragOverlay>
+        </div>
+      </DndContext>
     </SidebarProvider>
   );
 };

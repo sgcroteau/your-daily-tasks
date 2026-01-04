@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink, Inbox } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import TaskNotes from "./TaskNotes";
 import FileAttachment from "./FileAttachment";
-import { Task, TaskStatus, STATUS_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask } from "@/types/task";
+import { Task, TaskStatus, STATUS_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskDetailDialogProps {
@@ -33,6 +33,7 @@ interface TaskDetailDialogProps {
   onUpdate: (task: Task) => void;
   onNavigateToTask?: (taskId: string) => void;
   findTaskById?: (taskId: string) => Task | null;
+  projects?: Project[];
 }
 
 // Helper to collect all notes from a task and its subtasks recursively
@@ -79,6 +80,7 @@ const TaskDetailDialog = ({
   onUpdate,
   onNavigateToTask,
   findTaskById,
+  projects = [],
 }: TaskDetailDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -90,6 +92,7 @@ const TaskDetailDialog = ({
   const [subTasks, setSubTasks] = useState<Task[]>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState("");
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   // Build parent chain for breadcrumb navigation
   const parentChain = useMemo(() => {
@@ -121,6 +124,7 @@ const TaskDetailDialog = ({
       setNotes(task.notes);
       setAttachments(task.attachments);
       setSubTasks(task.subTasks);
+      setProjectId(task.projectId);
     }
   }, [task]);
 
@@ -135,6 +139,7 @@ const TaskDetailDialog = ({
         notes,
         attachments,
         subTasks,
+        projectId,
         completed: status === "done",
       });
       onOpenChange(false);
@@ -331,6 +336,40 @@ const TaskDetailDialog = ({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Project */}
+          {task.parentId === null && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Project</label>
+              <Select 
+                value={projectId ?? "inbox"} 
+                onValueChange={(v) => setProjectId(v === "inbox" ? null : v)}
+              >
+                <SelectTrigger className="w-full bg-secondary/50 border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inbox">
+                    <div className="flex items-center gap-2">
+                      <Inbox className="h-4 w-4" />
+                      <span>Inbox</span>
+                    </div>
+                  </SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <span>{project.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Due Date */}
           <div className="space-y-2">
