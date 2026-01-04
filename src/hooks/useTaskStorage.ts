@@ -38,7 +38,9 @@ export const useTaskStorage = () => {
         setTasks(parsed);
       }
     } catch (error) {
-      console.error("Failed to load tasks from localStorage:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to load tasks from localStorage:", error);
+      }
     }
     setIsLoaded(true);
   }, []);
@@ -49,10 +51,18 @@ export const useTaskStorage = () => {
       try {
         localStorage.setItem(STORAGE_KEY, serializeTasks(tasks));
       } catch (error) {
-        console.error("Failed to save tasks to localStorage:", error);
+        if (error instanceof DOMException && error.name === "QuotaExceededError") {
+          toast({
+            title: "Storage limit reached",
+            description: "Please export your tasks and remove large attachments or old completed tasks.",
+            variant: "destructive",
+          });
+        } else if (import.meta.env.DEV) {
+          console.error("Failed to save tasks to localStorage:", error);
+        }
       }
     }
-  }, [tasks, isLoaded]);
+  }, [tasks, isLoaded, toast]);
 
   // Export tasks to JSON file
   const exportTasks = useCallback(() => {
@@ -72,7 +82,9 @@ export const useTaskStorage = () => {
         description: "Your tasks have been exported to a JSON file.",
       });
     } catch (error) {
-      console.error("Export failed:", error);
+      if (import.meta.env.DEV) {
+        console.error("Export failed:", error);
+      }
       toast({
         title: "Export failed",
         description: "Could not export tasks. Please try again.",
@@ -95,7 +107,9 @@ export const useTaskStorage = () => {
             description: `Imported ${imported.length} tasks.`,
           });
         } catch (error) {
-          console.error("Import failed:", error);
+          if (import.meta.env.DEV) {
+            console.error("Import failed:", error);
+          }
           toast({
             title: "Import failed",
             description: "Invalid file format. Please use a valid tasks JSON file.",
