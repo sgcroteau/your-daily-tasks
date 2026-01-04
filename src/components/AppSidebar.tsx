@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { Inbox, FolderKanban, Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { Project, PROJECT_COLORS } from "@/types/task";
 import { cn } from "@/lib/utils";
@@ -31,7 +32,34 @@ interface AppSidebarProps {
   onUpdateProject: (id: string, updates: Partial<Pick<Project, "name" | "color">>) => void;
   onDeleteProject: (id: string) => void;
   taskCounts: { inbox: number; byProject: Record<string, number> };
+  isDragging?: boolean;
 }
+
+// Droppable wrapper for sidebar items
+const DroppableSidebarItem = ({
+  id,
+  children,
+  isDragging,
+}: {
+  id: string;
+  children: React.ReactNode;
+  isDragging: boolean;
+}) => {
+  const { isOver, setNodeRef } = useDroppable({ id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "transition-all duration-200 rounded-md",
+        isDragging && "ring-2 ring-dashed ring-primary/30",
+        isOver && "ring-primary bg-primary/10"
+      )}
+    >
+      {children}
+    </div>
+  );
+};
 
 export function AppSidebar({
   projects,
@@ -41,6 +69,7 @@ export function AppSidebar({
   onUpdateProject,
   onDeleteProject,
   taskCounts,
+  isDragging = false,
 }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
@@ -86,21 +115,23 @@ export function AppSidebar({
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => onSelectProject(null)}
-                isActive={selectedProjectId === null}
-                tooltip="Inbox"
-              >
-                <Inbox className="h-4 w-4" />
-                {!collapsed && (
-                  <>
-                    <span className="flex-1">Inbox</span>
-                    {taskCounts.inbox > 0 && (
-                      <span className="text-xs text-muted-foreground">{taskCounts.inbox}</span>
-                    )}
-                  </>
-                )}
-              </SidebarMenuButton>
+              <DroppableSidebarItem id="sidebar-inbox" isDragging={isDragging}>
+                <SidebarMenuButton
+                  onClick={() => onSelectProject(null)}
+                  isActive={selectedProjectId === null}
+                  tooltip="Inbox"
+                >
+                  <Inbox className="h-4 w-4" />
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1">Inbox</span>
+                      {taskCounts.inbox > 0 && (
+                        <span className="text-xs text-muted-foreground">{taskCounts.inbox}</span>
+                      )}
+                    </>
+                  )}
+                </SidebarMenuButton>
+              </DroppableSidebarItem>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
@@ -157,46 +188,48 @@ export function AppSidebar({
                       </Button>
                     </div>
                   ) : (
-                    <SidebarMenuButton
-                      onClick={() => onSelectProject(project.id)}
-                      isActive={selectedProjectId === project.id}
-                      tooltip={project.name}
-                    >
-                      <div
-                        className="h-3 w-3 rounded-full shrink-0"
-                        style={{ backgroundColor: project.color }}
-                      />
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 truncate">{project.name}</span>
-                          {(taskCounts.byProject[project.id] || 0) > 0 && (
-                            <span className="text-xs text-muted-foreground">
-                              {taskCounts.byProject[project.id]}
-                            </span>
-                          )}
-                          <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                startEdit(project);
-                              }}
-                              className="p-1 hover:bg-muted rounded"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onDeleteProject(project.id);
-                              }}
-                              className="p-1 hover:bg-destructive/10 hover:text-destructive rounded"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </SidebarMenuButton>
+                    <DroppableSidebarItem id={`sidebar-project-${project.id}`} isDragging={isDragging}>
+                      <SidebarMenuButton
+                        onClick={() => onSelectProject(project.id)}
+                        isActive={selectedProjectId === project.id}
+                        tooltip={project.name}
+                      >
+                        <div
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        {!collapsed && (
+                          <>
+                            <span className="flex-1 truncate">{project.name}</span>
+                            {(taskCounts.byProject[project.id] || 0) > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {taskCounts.byProject[project.id]}
+                              </span>
+                            )}
+                            <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEdit(project);
+                                }}
+                                className="p-1 hover:bg-muted rounded"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteProject(project.id);
+                                }}
+                                className="p-1 hover:bg-destructive/10 hover:text-destructive rounded"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </SidebarMenuButton>
+                    </DroppableSidebarItem>
                   )}
                 </SidebarMenuItem>
               ))}
