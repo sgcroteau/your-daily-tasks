@@ -1,4 +1,5 @@
 export type TaskStatus = "todo" | "in-progress" | "blocked" | "done";
+export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export interface TaskAttachment {
   id: string;
@@ -24,6 +25,7 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
+  priority: TaskPriority;
   dueDate: Date | null;
   completed: boolean;
   notes: TaskNote[];
@@ -49,12 +51,20 @@ export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }>
   "done": { label: "Done", color: "bg-primary/10 text-primary" },
 };
 
+export const PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; icon: string }> = {
+  "low": { label: "Low", color: "bg-muted text-muted-foreground", icon: "ArrowDown" },
+  "medium": { label: "Medium", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", icon: "Minus" },
+  "high": { label: "High", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: "ArrowUp" },
+  "urgent": { label: "Urgent", color: "bg-destructive/10 text-destructive", icon: "AlertTriangle" },
+};
+
 export const MAX_DEPTH = 3;
 
 export const createEmptyTask = (parentId: string | null = null, depth: number = 0, projectId: string | null = null): Omit<Task, "id" | "createdAt"> => ({
   title: "",
   description: "",
   status: "todo",
+  priority: "medium",
   dueDate: null,
   completed: false,
   notes: [],

@@ -11,9 +11,28 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Task } from "@/types/task";
+import { Task, TaskPriority, PRIORITY_CONFIG } from "@/types/task";
 import { filterTasksBySearch } from "@/lib/searchUtils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowDown, Minus, ArrowUp, AlertTriangle, ArrowUpDown, Filter } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type SortOption = "none" | "priority-high" | "priority-low" | "date-asc" | "date-desc";
+type PriorityFilter = "all" | TaskPriority;
+
+const PRIORITY_ORDER: Record<TaskPriority, number> = {
+  urgent: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
 
 const Index = () => {
   const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
@@ -23,6 +42,8 @@ const Index = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [sortOption, setSortOption] = useState<SortOption>("none");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Sensors for drag and drop
@@ -43,11 +64,44 @@ const Index = () => {
     return counts;
   }, [tasks]);
 
-  // Filter tasks by selected project and search query
+  // Filter tasks by selected project, search query, and priority
   const filteredTasks = useMemo(() => {
-    const projectTasks = tasks.filter((task) => task.projectId === selectedProjectId);
-    return filterTasksBySearch(projectTasks, debouncedSearchQuery);
-  }, [tasks, selectedProjectId, debouncedSearchQuery]);
+    let projectTasks = tasks.filter((task) => task.projectId === selectedProjectId);
+    
+    // Apply priority filter
+    if (priorityFilter !== "all") {
+      projectTasks = projectTasks.filter((task) => task.priority === priorityFilter);
+    }
+    
+    // Apply search filter
+    let result = filterTasksBySearch(projectTasks, debouncedSearchQuery);
+    
+    // Apply sorting
+    if (sortOption !== "none") {
+      result = [...result].sort((a, b) => {
+        switch (sortOption) {
+          case "priority-high":
+            return PRIORITY_ORDER[b.priority || "medium"] - PRIORITY_ORDER[a.priority || "medium"];
+          case "priority-low":
+            return PRIORITY_ORDER[a.priority || "medium"] - PRIORITY_ORDER[b.priority || "medium"];
+          case "date-asc":
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          case "date-desc":
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
+          default:
+            return 0;
+        }
+      });
+    }
+    
+    return result;
+  }, [tasks, selectedProjectId, debouncedSearchQuery, priorityFilter, sortOption]);
 
   // Handle project deletion - move tasks to inbox
   const handleDeleteProject = (projectId: string) => {
@@ -263,6 +317,60 @@ const Index = () => {
               
               <TaskInput onAddTask={addTask} projectId={selectedProjectId} />
               
+              {/* Filter and Sort Controls */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground" />
+                  <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as PriorityFilter)}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue placeholder="Filter priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                        <SelectItem key={key} value={key}>
+                          <div className="flex items-center gap-2">
+                            {key === "low" && <ArrowDown className="w-3 h-3" />}
+                            {key === "medium" && <Minus className="w-3 h-3" />}
+                            {key === "high" && <ArrowUp className="w-3 h-3" />}
+                            {key === "urgent" && <AlertTriangle className="w-3 h-3" />}
+                            <span>{config.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+                  <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
+                    <SelectTrigger className="w-[140px] h-8 text-xs">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Default Order</SelectItem>
+                      <SelectItem value="priority-high">Priority: High → Low</SelectItem>
+                      <SelectItem value="priority-low">Priority: Low → High</SelectItem>
+                      <SelectItem value="date-asc">Due Date: Earliest</SelectItem>
+                      <SelectItem value="date-desc">Due Date: Latest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {(priorityFilter !== "all" || sortOption !== "none") && (
+                  <button
+                    onClick={() => {
+                      setPriorityFilter("all");
+                      setSortOption("none");
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+              
               {total > 0 && (
                 <TaskStats total={total} completed={completedCount} />
               )}
@@ -282,6 +390,8 @@ const Index = () => {
                   <p className="text-muted-foreground">
                     {debouncedSearchQuery
                       ? `No results for "${debouncedSearchQuery}"`
+                      : priorityFilter !== "all"
+                      ? `No ${priorityFilter} priority tasks`
                       : `No tasks in ${pageTitle.toLowerCase()}`}
                   </p>
                 </div>

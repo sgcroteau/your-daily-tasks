@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink, Inbox } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink, Inbox, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import TaskNotes from "./TaskNotes";
 import FileAttachment from "./FileAttachment";
-import { Task, TaskStatus, STATUS_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project } from "@/types/task";
+import { Task, TaskStatus, TaskPriority, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskDetailDialogProps {
@@ -85,6 +85,7 @@ const TaskDetailDialog = ({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
+  const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [dueDateInput, setDueDateInput] = useState("");
   const [notes, setNotes] = useState<TaskNote[]>([]);
@@ -119,6 +120,7 @@ const TaskDetailDialog = ({
       setTitle(task.title);
       setDescription(task.description);
       setStatus(task.status);
+      setPriority(task.priority || "medium");
       setDueDate(task.dueDate);
       setDueDateInput(task.dueDate ? format(task.dueDate, "MM/dd/yyyy") : "");
       setNotes(task.notes);
@@ -135,6 +137,7 @@ const TaskDetailDialog = ({
         title,
         description,
         status,
+        priority,
         dueDate,
         notes,
         attachments,
@@ -226,6 +229,7 @@ const TaskDetailDialog = ({
         title,
         description,
         status,
+        priority,
         dueDate,
         notes,
         attachments,
@@ -331,6 +335,31 @@ const TaskDetailDialog = ({
                     <span className={cn("px-2 py-0.5 rounded-full text-xs", config.color)}>
                       {config.label}
                     </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Priority */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Priority</label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+              <SelectTrigger className="w-full bg-secondary/50 border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(PRIORITY_CONFIG).map(([key, config]) => (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      {key === "low" && <ArrowDown className="w-3 h-3" />}
+                      {key === "medium" && <Minus className="w-3 h-3" />}
+                      {key === "high" && <ArrowUp className="w-3 h-3" />}
+                      {key === "urgent" && <AlertTriangle className="w-3 h-3" />}
+                      <span className={cn("px-2 py-0.5 rounded-full text-xs", config.color)}>
+                        {config.label}
+                      </span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
