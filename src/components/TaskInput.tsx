@@ -80,6 +80,7 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
         title: st.title.trim(),
         description: "",
         status: "todo" as TaskStatus,
+        priority: "medium" as const,
         dueDate: null,
         completed: false,
         notes: [],

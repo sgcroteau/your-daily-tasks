@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Check, Trash2, ChevronRight, AlertCircle } from "lucide-react";
+import { Check, Trash2, ChevronRight, AlertCircle, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
-import { Task, STATUS_CONFIG } from "@/types/task";
+import { Task, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskItemProps {
@@ -71,10 +71,19 @@ const TaskItem = ({ task, onToggle, onDelete, onOpen }: TaskItemProps) => {
           )}
         </div>
         
-        <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className={cn("text-xs px-2 py-0.5 rounded-full", STATUS_CONFIG[task.status].color)}>
             {STATUS_CONFIG[task.status].label}
           </span>
+          
+          {task.priority && task.priority !== "medium" && (
+            <span className={cn("text-xs px-2 py-0.5 rounded-full flex items-center gap-1", PRIORITY_CONFIG[task.priority].color)}>
+              {task.priority === "low" && <ArrowDown className="w-3 h-3" />}
+              {task.priority === "high" && <ArrowUp className="w-3 h-3" />}
+              {task.priority === "urgent" && <AlertTriangle className="w-3 h-3" />}
+              {PRIORITY_CONFIG[task.priority].label}
+            </span>
+          )}
           
           {task.dueDate && (
             <span className={cn(

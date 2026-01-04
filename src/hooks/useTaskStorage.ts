@@ -28,6 +28,7 @@ const taskNoteSchema = z.object({
 });
 
 const taskStatusSchema = z.enum(["todo", "in-progress", "blocked", "done"]);
+const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
 
 // Define base task schema without recursion first
 const baseTaskSchema = z.object({
@@ -35,6 +36,7 @@ const baseTaskSchema = z.object({
   title: z.string().max(500),
   description: z.string().max(MAX_STRING_LENGTH),
   status: taskStatusSchema,
+  priority: taskPrioritySchema.optional().default("medium"),
   dueDate: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() }), z.null()]),
   completed: z.boolean(),
   notes: z.array(taskNoteSchema).max(100),
@@ -73,11 +75,12 @@ const sanitizeTask = (task: Task): Task => ({
   subTasks: task.subTasks.map(sanitizeTask),
 });
 
-// Enforce max depth during import
+// Enforce max depth during import and ensure priority exists
 const enforceMaxDepth = (tasks: Task[], currentDepth = 0): Task[] => {
   return tasks.map((task) => ({
     ...task,
     depth: currentDepth,
+    priority: task.priority || "medium",
     subTasks: currentDepth < MAX_DEPTH ? enforceMaxDepth(task.subTasks, currentDepth + 1) : [],
   }));
 };
