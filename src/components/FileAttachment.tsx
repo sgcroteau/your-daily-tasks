@@ -3,6 +3,9 @@ import { format } from "date-fns";
 import { Paperclip, X, Image, FileText } from "lucide-react";
 import { TaskAttachment } from "@/types/task";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB limit
 
 interface FileAttachmentProps {
   attachments: TaskAttachment[];
@@ -13,12 +16,23 @@ interface FileAttachmentProps {
 
 const FileAttachment = ({ attachments, onAdd, onRemove, compact = false }: FileAttachmentProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
     Array.from(files).forEach((file) => {
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        toast({
+          title: "File too large",
+          description: `"${file.name}" exceeds 5MB limit. Please choose a smaller file.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = () => {
         const attachment: TaskAttachment = {

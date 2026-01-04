@@ -35,7 +35,9 @@ export const useProjectStorage = () => {
         setProjects(parsed);
       }
     } catch (error) {
-      console.error("Failed to load projects from localStorage:", error);
+      if (import.meta.env.DEV) {
+        console.error("Failed to load projects from localStorage:", error);
+      }
     }
     setIsLoaded(true);
   }, []);
@@ -45,10 +47,18 @@ export const useProjectStorage = () => {
       try {
         localStorage.setItem(STORAGE_KEY, serializeProjects(projects));
       } catch (error) {
-        console.error("Failed to save projects to localStorage:", error);
+        if (error instanceof DOMException && error.name === "QuotaExceededError") {
+          toast({
+            title: "Storage limit reached",
+            description: "Please remove some projects or tasks to free up space.",
+            variant: "destructive",
+          });
+        } else if (import.meta.env.DEV) {
+          console.error("Failed to save projects to localStorage:", error);
+        }
       }
     }
-  }, [projects, isLoaded]);
+  }, [projects, isLoaded, toast]);
 
   const addProject = useCallback((name: string) => {
     const usedColors = projects.map(p => p.color);
