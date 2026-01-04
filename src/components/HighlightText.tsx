@@ -9,31 +9,39 @@ interface HighlightTextProps {
 /**
  * Component that highlights matching text within a string
  */
+const MAX_QUERY_LENGTH = 100;
+
 const HighlightText = ({ text, query, className = "" }: HighlightTextProps) => {
-  if (!query.trim()) {
+  // Return plain text if query is empty or exceeds max length
+  if (!query.trim() || query.length > MAX_QUERY_LENGTH) {
     return <span className={className}>{text}</span>;
   }
 
-  const regex = new RegExp(`(${escapeRegex(query)})`, "gi");
-  const parts = text.split(regex);
+  try {
+    const regex = new RegExp(`(${escapeRegex(query)})`, "gi");
+    const parts = text.split(regex);
 
-  return (
-    <span className={className}>
-      {parts.map((part, index) => {
-        const isMatch = part.toLowerCase() === query.toLowerCase();
-        return isMatch ? (
-          <mark
-            key={index}
-            className="bg-primary/30 text-foreground rounded-sm px-0.5"
-          >
-            {part}
-          </mark>
-        ) : (
-          <React.Fragment key={index}>{part}</React.Fragment>
-        );
-      })}
-    </span>
-  );
+    return (
+      <span className={className}>
+        {parts.map((part, index) => {
+          const isMatch = part.toLowerCase() === query.toLowerCase();
+          return isMatch ? (
+            <mark
+              key={index}
+              className="bg-primary/30 text-foreground rounded-sm px-0.5"
+            >
+              {part}
+            </mark>
+          ) : (
+            <React.Fragment key={index}>{part}</React.Fragment>
+          );
+        })}
+      </span>
+    );
+  } catch {
+    // If regex creation fails, return plain text
+    return <span className={className}>{text}</span>;
+  }
 };
 
 /**
