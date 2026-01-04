@@ -1,8 +1,86 @@
 import { useState, useEffect, useCallback } from "react";
-import { Task } from "@/types/task";
+import { z } from "zod";
+import { Task, TaskStatus, MAX_DEPTH } from "@/types/task";
 import { useToast } from "@/hooks/use-toast";
 
 const STORAGE_KEY = "tasks-app-data";
+const MAX_IMPORT_FILE_SIZE = 10 * 1024 * 1024; // 10MB max import file
+const MAX_STRING_LENGTH = 10000; // Max length for text fields
+
+// Zod schema for task validation
+const taskAttachmentSchema = z.object({
+  id: z.string().max(100),
+  name: z.string().max(500),
+  type: z.string().max(100),
+  url: z.string().max(MAX_STRING_LENGTH),
+  size: z.number().nonnegative(),
+  createdAt: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() })]),
+});
+
+const taskNoteSchema = z.object({
+  id: z.string().max(100),
+  content: z.string().max(MAX_STRING_LENGTH),
+  attachments: z.array(taskAttachmentSchema).max(50),
+  createdAt: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() })]),
+  updatedAt: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() })]),
+  originTaskId: z.string().max(100),
+  originTaskTitle: z.string().max(500),
+});
+
+const taskStatusSchema = z.enum(["todo", "in-progress", "blocked", "done"]);
+
+// Define base task schema without recursion first
+const baseTaskSchema = z.object({
+  id: z.string().max(100),
+  title: z.string().max(500),
+  description: z.string().max(MAX_STRING_LENGTH),
+  status: taskStatusSchema,
+  dueDate: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() }), z.null()]),
+  completed: z.boolean(),
+  notes: z.array(taskNoteSchema).max(100),
+  attachments: z.array(taskAttachmentSchema).max(50),
+  parentId: z.string().max(100).nullable(),
+  depth: z.number().min(0).max(MAX_DEPTH),
+  createdAt: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() })]),
+  projectId: z.string().max(100).nullable(),
+});
+
+// Recursive schema for tasks with subtasks (limit depth)
+const taskSchema: z.ZodType<unknown> = baseTaskSchema.extend({
+  subTasks: z.lazy(() => z.array(taskSchema).max(100)),
+});
+
+const tasksArraySchema = z.array(taskSchema).max(1000);
+
+// Sanitize string to prevent XSS (removes script tags and event handlers)
+const sanitizeString = (str: string): string => {
+  return str
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/javascript:/gi, "");
+};
+
+// Recursively sanitize task strings
+const sanitizeTask = (task: Task): Task => ({
+  ...task,
+  title: sanitizeString(task.title),
+  description: sanitizeString(task.description),
+  notes: task.notes.map((note) => ({
+    ...note,
+    content: sanitizeString(note.content),
+    originTaskTitle: sanitizeString(note.originTaskTitle),
+  })),
+  subTasks: task.subTasks.map(sanitizeTask),
+});
+
+// Enforce max depth during import
+const enforceMaxDepth = (tasks: Task[], currentDepth = 0): Task[] => {
+  return tasks.map((task) => ({
+    ...task,
+    depth: currentDepth,
+    subTasks: currentDepth < MAX_DEPTH ? enforceMaxDepth(task.subTasks, currentDepth + 1) : [],
+  }));
+};
 
 // Helper to serialize tasks (convert Date objects to strings)
 const serializeTasks = (tasks: Task[]): string => {
@@ -93,18 +171,44 @@ export const useTaskStorage = () => {
     }
   }, [tasks, toast]);
 
-  // Import tasks from JSON file
+  // Import tasks from JSON file with validation
   const importTasks = useCallback(
     (file: File) => {
+      // Validate file size
+      if (file.size > MAX_IMPORT_FILE_SIZE) {
+        toast({
+          title: "File too large",
+          description: "Import file must be less than 10MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const content = e.target?.result as string;
-          const imported = deserializeTasks(content);
-          setTasks(imported);
+          const parsed = deserializeTasks(content);
+          
+          // Validate structure with zod
+          const validationResult = tasksArraySchema.safeParse(parsed);
+          if (!validationResult.success) {
+            toast({
+              title: "Invalid file format",
+              description: "The file contains invalid task data. Please use a valid backup file.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // Enforce max depth and sanitize
+          const depthEnforced = enforceMaxDepth(parsed as Task[]);
+          const sanitized = depthEnforced.map(sanitizeTask);
+          
+          setTasks(sanitized);
           toast({
             title: "Import successful",
-            description: `Imported ${imported.length} tasks.`,
+            description: `Imported ${sanitized.length} tasks.`,
           });
         } catch (error) {
           if (import.meta.env.DEV) {
