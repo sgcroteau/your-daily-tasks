@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight, Paperclip } from "lucide-react";
-import { Task, TaskStatus, TaskNote, TaskAttachment, STATUS_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
+import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight, Paperclip, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
+import { Task, TaskStatus, TaskPriority, TaskNote, TaskAttachment, STATUS_CONFIG, PRIORITY_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -44,11 +44,19 @@ interface NoteInput {
   attachments: TaskAttachment[];
 }
 
+const PRIORITY_ICONS = {
+  low: ArrowDown,
+  medium: Minus,
+  high: ArrowUp,
+  urgent: AlertTriangle,
+};
+
 const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
   const [title, setTitle] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
+  const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [subTasks, setSubTasks] = useState<SubTaskInput[]>([]);
   const [notes, setNotes] = useState<NoteInput[]>([]);
@@ -60,6 +68,7 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
     setTitle("");
     setDescription("");
     setStatus("todo");
+    setPriority("medium");
     setDueDate(null);
     setSubTasks([]);
     setNotes([]);
@@ -116,6 +125,7 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
         title: title.trim(),
         description: description.trim(),
         status,
+        priority,
         dueDate,
         completed: status === "done",
         subTasks: subTaskObjects,
@@ -282,6 +292,36 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
           className="flex-1 px-5 py-4 pr-24 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {/* Priority selector */}
+          <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+            <SelectTrigger className="w-auto h-8 px-2 border-0 bg-transparent hover:bg-muted focus:ring-0 focus:ring-offset-0">
+              {(() => {
+                const PriorityIcon = PRIORITY_ICONS[priority];
+                const config = PRIORITY_CONFIG[priority];
+                return (
+                  <span className={cn("flex items-center gap-1 text-xs px-1.5 py-0.5 rounded", config.color)}>
+                    <PriorityIcon className="w-3 h-3" />
+                  </span>
+                );
+              })()}
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PRIORITY_CONFIG) as TaskPriority[]).map((key) => {
+                const config = PRIORITY_CONFIG[key];
+                const Icon = PRIORITY_ICONS[key];
+                return (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("flex items-center gap-1 text-xs px-1.5 py-0.5 rounded", config.color)}>
+                        <Icon className="w-3 h-3" />
+                      </span>
+                      {config.label}
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
           <button
             type="button"
             onClick={() => setExpanded(!expanded)}
