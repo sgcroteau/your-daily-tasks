@@ -13,7 +13,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Task } from "@/types/task";
+import { Task, TaskLabel } from "@/types/task";
 import DraggableTaskItem from "./DraggableTaskItem";
 
 interface TaskListProps {
@@ -24,9 +24,10 @@ interface TaskListProps {
   onReorder: (tasks: Task[]) => void;
   onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
   searchQuery?: string;
+  labels: TaskLabel[];
 }
 
-const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks, searchQuery = "" }: TaskListProps) => {
+const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks, searchQuery = "", labels }: TaskListProps) => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -93,6 +94,7 @@ const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTas
                 onOpen={onOpen}
                 onUpdateSubTasks={onUpdateSubTasks}
                 searchQuery={searchQuery}
+                labels={labels}
               />
             </div>
           ))}

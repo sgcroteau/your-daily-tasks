@@ -5,7 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
-import { Task, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
+import { Task, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
 import HighlightText from "./HighlightText";
 import { getMatchLocations } from "@/lib/searchUtils";
@@ -17,12 +17,15 @@ interface DraggableTaskItemProps {
   onOpen: (task: Task) => void;
   onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
   searchQuery?: string;
+  labels: TaskLabel[];
 }
 
-const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks, searchQuery = "" }: DraggableTaskItemProps) => {
+const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks, searchQuery = "", labels }: DraggableTaskItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  
+  const taskLabels = labels.filter((l) => task.labelIds?.includes(l.id));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -181,6 +184,21 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
               </span>
             )}
             
+            {/* Labels */}
+            {taskLabels.length > 0 && (
+              <span className="flex items-center gap-1 flex-wrap">
+                {taskLabels.map((label) => (
+                  <span
+                    key={label.id}
+                    className="text-white px-1.5 py-0.5 rounded text-[10px]"
+                    style={{ backgroundColor: label.color }}
+                  >
+                    {label.name}
+                  </span>
+                ))}
+              </span>
+            )}
+            
             {task.dueDate && (
               <span className={cn(
                 "text-xs flex items-center gap-1",
@@ -245,6 +263,7 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
                     );
                     onUpdateSubTasks(task.id, updated);
                   }}
+                  labels={labels}
                 />
               ))}
             </div>
