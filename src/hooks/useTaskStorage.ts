@@ -45,6 +45,7 @@ const baseTaskSchema = z.object({
   depth: z.number().min(0).max(MAX_DEPTH),
   createdAt: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() })]),
   projectId: z.string().max(100).nullable(),
+  labelIds: z.array(z.string().max(100)).max(20).optional().default([]),
 });
 
 // Recursive schema for tasks with subtasks (limit depth)
@@ -75,12 +76,13 @@ const sanitizeTask = (task: Task): Task => ({
   subTasks: task.subTasks.map(sanitizeTask),
 });
 
-// Enforce max depth during import and ensure priority exists
+// Enforce max depth during import and ensure priority and labelIds exist
 const enforceMaxDepth = (tasks: Task[], currentDepth = 0): Task[] => {
   return tasks.map((task) => ({
     ...task,
     depth: currentDepth,
     priority: task.priority || "medium",
+    labelIds: task.labelIds || [],
     subTasks: currentDepth < MAX_DEPTH ? enforceMaxDepth(task.subTasks, currentDepth + 1) : [],
   }));
 };

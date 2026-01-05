@@ -23,7 +23,8 @@ import {
 import { Button } from "@/components/ui/button";
 import TaskNotes from "./TaskNotes";
 import FileAttachment from "./FileAttachment";
-import { Task, TaskStatus, TaskPriority, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project } from "@/types/task";
+import LabelSelector from "./LabelSelector";
+import { Task, TaskStatus, TaskPriority, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskDetailDialogProps {
@@ -34,6 +35,8 @@ interface TaskDetailDialogProps {
   onNavigateToTask?: (taskId: string) => void;
   findTaskById?: (taskId: string) => Task | null;
   projects?: Project[];
+  labels: TaskLabel[];
+  onCreateLabel: (name: string, color: string) => TaskLabel;
 }
 
 // Helper to collect all notes from a task and its subtasks recursively
@@ -81,11 +84,14 @@ const TaskDetailDialog = ({
   onNavigateToTask,
   findTaskById,
   projects = [],
+  labels,
+  onCreateLabel,
 }: TaskDetailDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [dueDateInput, setDueDateInput] = useState("");
   const [notes, setNotes] = useState<TaskNote[]>([]);
@@ -121,6 +127,7 @@ const TaskDetailDialog = ({
       setDescription(task.description);
       setStatus(task.status);
       setPriority(task.priority || "medium");
+      setSelectedLabelIds(task.labelIds || []);
       setDueDate(task.dueDate);
       setDueDateInput(task.dueDate ? format(task.dueDate, "MM/dd/yyyy") : "");
       setNotes(task.notes);
@@ -138,6 +145,7 @@ const TaskDetailDialog = ({
         description,
         status,
         priority,
+        labelIds: selectedLabelIds,
         dueDate,
         notes,
         attachments,
@@ -230,6 +238,7 @@ const TaskDetailDialog = ({
         description,
         status,
         priority,
+        labelIds: selectedLabelIds,
         dueDate,
         notes,
         attachments,
@@ -239,6 +248,12 @@ const TaskDetailDialog = ({
     }
     // Navigate to the sub-task
     onNavigateToTask?.(taskId);
+  };
+
+  const handleToggleLabel = (labelId: string) => {
+    setSelectedLabelIds((prev) =>
+      prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId]
+    );
   };
 
   if (!task) return null;
@@ -364,6 +379,17 @@ const TaskDetailDialog = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Labels */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Labels</label>
+            <LabelSelector
+              labels={labels}
+              selectedLabelIds={selectedLabelIds}
+              onToggleLabel={handleToggleLabel}
+              onCreateLabel={onCreateLabel}
+            />
           </div>
 
           {/* Project */}

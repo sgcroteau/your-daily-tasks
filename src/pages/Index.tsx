@@ -10,8 +10,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
+import { useLabelStorage } from "@/hooks/useLabelStorage";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Task, TaskPriority, PRIORITY_CONFIG } from "@/types/task";
+import { Task, TaskPriority, TaskLabel, PRIORITY_CONFIG } from "@/types/task";
 import { filterTasksBySearch } from "@/lib/searchUtils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -21,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowDown, Minus, ArrowUp, AlertTriangle, ArrowUpDown, Filter } from "lucide-react";
+import { ArrowDown, Minus, ArrowUp, AlertTriangle, ArrowUpDown, Filter, Tag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortOption = "none" | "priority-high" | "priority-low" | "date-asc" | "date-desc";
@@ -37,6 +38,7 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
 const Index = () => {
   const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
   const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
+  const { labels, addLabel } = useLabelStorage();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -44,6 +46,7 @@ const Index = () => {
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>("none");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [labelFilter, setLabelFilter] = useState<string>("all");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Sensors for drag and drop
@@ -64,13 +67,18 @@ const Index = () => {
     return counts;
   }, [tasks]);
 
-  // Filter tasks by selected project, search query, and priority
+  // Filter tasks by selected project, search query, priority, and labels
   const filteredTasks = useMemo(() => {
     let projectTasks = tasks.filter((task) => task.projectId === selectedProjectId);
     
     // Apply priority filter
     if (priorityFilter !== "all") {
       projectTasks = projectTasks.filter((task) => task.priority === priorityFilter);
+    }
+    
+    // Apply label filter
+    if (labelFilter !== "all") {
+      projectTasks = projectTasks.filter((task) => task.labelIds?.includes(labelFilter));
     }
     
     // Apply search filter
@@ -101,7 +109,7 @@ const Index = () => {
     }
     
     return result;
-  }, [tasks, selectedProjectId, debouncedSearchQuery, priorityFilter, sortOption]);
+  }, [tasks, selectedProjectId, debouncedSearchQuery, priorityFilter, labelFilter, sortOption]);
 
   // Handle project deletion - move tasks to inbox
   const handleDeleteProject = (projectId: string) => {
@@ -315,7 +323,12 @@ const Index = () => {
                 placeholder="Search tasks, notes, subtasks..."
               />
               
-              <TaskInput onAddTask={addTask} projectId={selectedProjectId} />
+              <TaskInput 
+                onAddTask={addTask} 
+                projectId={selectedProjectId} 
+                labels={labels}
+                onCreateLabel={addLabel}
+              />
               
               {/* Filter and Sort Controls */}
               <div className="flex flex-wrap items-center gap-3">
@@ -342,6 +355,32 @@ const Index = () => {
                   </Select>
                 </div>
                 
+                {/* Label filter */}
+                {labels.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-muted-foreground" />
+                    <Select value={labelFilter} onValueChange={setLabelFilter}>
+                      <SelectTrigger className="w-[130px] h-8 text-xs">
+                        <SelectValue placeholder="Filter label" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Labels</SelectItem>
+                        {labels.map((label) => (
+                          <SelectItem key={label.id} value={label.id}>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full shrink-0"
+                                style={{ backgroundColor: label.color }}
+                              />
+                              <span className="truncate">{label.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-2">
                   <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
                   <Select value={sortOption} onValueChange={(v) => setSortOption(v as SortOption)}>
@@ -358,11 +397,12 @@ const Index = () => {
                   </Select>
                 </div>
                 
-                {(priorityFilter !== "all" || sortOption !== "none") && (
+                {(priorityFilter !== "all" || sortOption !== "none" || labelFilter !== "all") && (
                   <button
                     onClick={() => {
                       setPriorityFilter("all");
                       setSortOption("none");
+                      setLabelFilter("all");
                     }}
                     className="text-xs text-muted-foreground hover:text-foreground underline"
                   >
@@ -383,6 +423,7 @@ const Index = () => {
                 onReorder={reorderTasks}
                 onUpdateSubTasks={updateSubTasks}
                 searchQuery={debouncedSearchQuery}
+                labels={labels}
               />
 
               {filteredTasks.length === 0 && (
@@ -408,6 +449,8 @@ const Index = () => {
           onNavigateToTask={navigateToTask}
           findTaskById={findTaskById}
           projects={projects}
+          labels={labels}
+          onCreateLabel={addLabel}
         />
 
         <DragOverlay>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check, Trash2, ChevronRight, AlertCircle, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
-import { Task, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
+import { Task, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskItemProps {
@@ -9,11 +9,14 @@ interface TaskItemProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onOpen: (task: Task) => void;
+  labels: TaskLabel[];
 }
 
-const TaskItem = ({ task, onToggle, onDelete, onOpen }: TaskItemProps) => {
+const TaskItem = ({ task, onToggle, onDelete, onOpen, labels }: TaskItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
+  
+  const taskLabels = labels.filter((l) => task.labelIds?.includes(l.id));
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -82,6 +85,21 @@ const TaskItem = ({ task, onToggle, onDelete, onOpen }: TaskItemProps) => {
               {task.priority === "high" && <ArrowUp className="w-3 h-3" />}
               {task.priority === "urgent" && <AlertTriangle className="w-3 h-3" />}
               {PRIORITY_CONFIG[task.priority].label}
+            </span>
+          )}
+          
+          {/* Labels */}
+          {taskLabels.length > 0 && (
+            <span className={cn("text-xs px-2 py-0.5 rounded-full flex items-center gap-1 flex-wrap")}>
+              {taskLabels.map((label) => (
+                <span
+                  key={label.id}
+                  className="text-white px-1.5 py-0.5 rounded text-[10px]"
+                  style={{ backgroundColor: label.color }}
+                >
+                  {label.name}
+                </span>
+              ))}
             </span>
           )}
           

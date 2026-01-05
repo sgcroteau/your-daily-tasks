@@ -1,6 +1,12 @@
 export type TaskStatus = "todo" | "in-progress" | "blocked" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
+export interface TaskLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface TaskAttachment {
   id: string;
   name: string;
@@ -35,6 +41,7 @@ export interface Task {
   depth: number;
   createdAt: Date;
   projectId: string | null; // null means Inbox
+  labelIds: string[]; // Array of label IDs
 }
 
 export interface Project {
@@ -73,7 +80,21 @@ export const createEmptyTask = (parentId: string | null = null, depth: number = 
   parentId,
   depth,
   projectId,
+  labelIds: [],
 });
+
+export const LABEL_COLORS = [
+  "#ef4444", // red
+  "#f97316", // orange
+  "#eab308", // yellow
+  "#22c55e", // green
+  "#14b8a6", // teal
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#6366f1", // indigo
+  "#84cc16", // lime
+];
 
 export const PROJECT_COLORS = [
   "#ef4444", // red

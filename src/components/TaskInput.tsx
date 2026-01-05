@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight, Paperclip, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
-import { Task, TaskStatus, TaskPriority, TaskNote, TaskAttachment, STATUS_CONFIG, PRIORITY_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
+import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight, Paperclip, ArrowDown, Minus, ArrowUp, AlertTriangle, Tag } from "lucide-react";
+import { Task, TaskStatus, TaskPriority, TaskLabel, TaskNote, TaskAttachment, STATUS_CONFIG, PRIORITY_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import FileAttachment from "@/components/FileAttachment";
+import LabelSelector from "@/components/LabelSelector";
 import {
   Popover,
   PopoverContent,
@@ -29,6 +30,8 @@ import { format } from "date-fns";
 interface TaskInputProps {
   onAddTask: (task: Omit<Task, "id" | "createdAt">) => void;
   projectId?: string | null;
+  labels: TaskLabel[];
+  onCreateLabel: (name: string, color: string) => TaskLabel;
 }
 
 interface SubTaskInput {
@@ -51,12 +54,13 @@ const PRIORITY_ICONS = {
   urgent: AlertTriangle,
 };
 
-const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
+const TaskInput = ({ onAddTask, projectId = null, labels, onCreateLabel }: TaskInputProps) => {
   const [title, setTitle] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [subTasks, setSubTasks] = useState<SubTaskInput[]>([]);
   const [notes, setNotes] = useState<NoteInput[]>([]);
@@ -69,6 +73,7 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
     setDescription("");
     setStatus("todo");
     setPriority("medium");
+    setSelectedLabelIds([]);
     setDueDate(null);
     setSubTasks([]);
     setNotes([]);
@@ -99,6 +104,7 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
         depth,
         createdAt: now,
         projectId: taskProjectId,
+        labelIds: [],
       }));
   };
 
@@ -126,6 +132,7 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
         description: description.trim(),
         status,
         priority,
+        labelIds: selectedLabelIds,
         dueDate,
         completed: status === "done",
         subTasks: subTaskObjects,
@@ -232,6 +239,12 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
 
   const removeAttachment = (id: string) => {
     setAttachments(attachments.filter(a => a.id !== id));
+  };
+
+  const handleToggleLabel = (labelId: string) => {
+    setSelectedLabelIds((prev) =>
+      prev.includes(labelId) ? prev.filter((id) => id !== labelId) : [...prev, labelId]
+    );
   };
 
   // Recursive sub-task renderer
@@ -413,6 +426,20 @@ const TaskInput = ({ onAddTask, projectId = null }: TaskInputProps) => {
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          {/* Labels */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground mb-1.5 flex items-center gap-2">
+              <Tag className="w-4 h-4" />
+              Labels
+            </label>
+            <LabelSelector
+              labels={labels}
+              selectedLabelIds={selectedLabelIds}
+              onToggleLabel={handleToggleLabel}
+              onCreateLabel={onCreateLabel}
+            />
           </div>
 
           {/* Attachments */}
