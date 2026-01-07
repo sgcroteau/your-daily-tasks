@@ -105,6 +105,7 @@ const TaskInput = ({ onAddTask, projectId = null, labels, onCreateLabel }: TaskI
         createdAt: now,
         projectId: taskProjectId,
         labelIds: [],
+        recurrence: null,
       }));
   };
 

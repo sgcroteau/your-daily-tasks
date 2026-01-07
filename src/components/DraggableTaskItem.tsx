@@ -3,7 +3,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
+import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown, ArrowDown, Minus, ArrowUp, AlertTriangle, Repeat } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { Task, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
@@ -196,6 +196,15 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
                     {label.name}
                   </span>
                 ))}
+              </span>
+            )}
+            
+            {/* Recurrence indicator */}
+            {task.recurrence && task.recurrence.type !== "none" && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex items-center gap-1">
+                <Repeat className="w-3 h-3" />
+                {task.recurrence.interval > 1 && task.recurrence.interval}
+                {task.recurrence.type === "daily" ? "d" : task.recurrence.type === "weekly" ? "w" : "m"}
               </span>
             )}
             

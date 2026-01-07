@@ -29,6 +29,12 @@ const taskNoteSchema = z.object({
 
 const taskStatusSchema = z.enum(["todo", "in-progress", "blocked", "done"]);
 const taskPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
+const recurrenceTypeSchema = z.enum(["none", "daily", "weekly", "monthly"]);
+
+const recurrenceConfigSchema = z.object({
+  type: recurrenceTypeSchema,
+  interval: z.number().min(1).max(365),
+}).nullable();
 
 // Define base task schema without recursion first
 const baseTaskSchema = z.object({
@@ -46,6 +52,7 @@ const baseTaskSchema = z.object({
   createdAt: z.union([z.date(), z.object({ __type: z.literal("Date"), value: z.string() })]),
   projectId: z.string().max(100).nullable(),
   labelIds: z.array(z.string().max(100)).max(20).optional().default([]),
+  recurrence: recurrenceConfigSchema.optional().default(null),
 });
 
 // Recursive schema for tasks with subtasks (limit depth)
@@ -76,13 +83,14 @@ const sanitizeTask = (task: Task): Task => ({
   subTasks: task.subTasks.map(sanitizeTask),
 });
 
-// Enforce max depth during import and ensure priority and labelIds exist
+// Enforce max depth during import and ensure priority, labelIds, and recurrence exist
 const enforceMaxDepth = (tasks: Task[], currentDepth = 0): Task[] => {
   return tasks.map((task) => ({
     ...task,
     depth: currentDepth,
     priority: task.priority || "medium",
     labelIds: task.labelIds || [],
+    recurrence: task.recurrence || null,
     subTasks: currentDepth < MAX_DEPTH ? enforceMaxDepth(task.subTasks, currentDepth + 1) : [],
   }));
 };

@@ -1,5 +1,11 @@
 export type TaskStatus = "todo" | "in-progress" | "blocked" | "done";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
+export type RecurrenceType = "none" | "daily" | "weekly" | "monthly";
+
+export interface RecurrenceConfig {
+  type: RecurrenceType;
+  interval: number; // Every X days/weeks/months
+}
 
 export interface TaskLabel {
   id: string;
@@ -42,6 +48,7 @@ export interface Task {
   createdAt: Date;
   projectId: string | null; // null means Inbox
   labelIds: string[]; // Array of label IDs
+  recurrence: RecurrenceConfig | null; // Recurring task configuration
 }
 
 export interface Project {
@@ -81,7 +88,34 @@ export const createEmptyTask = (parentId: string | null = null, depth: number = 
   depth,
   projectId,
   labelIds: [],
+  recurrence: null,
 });
+
+export const RECURRENCE_OPTIONS: { value: RecurrenceType; label: string }[] = [
+  { value: "none", label: "No repeat" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+export const getNextDueDate = (currentDueDate: Date | null, recurrence: RecurrenceConfig): Date => {
+  const baseDate = currentDueDate || new Date();
+  const nextDate = new Date(baseDate);
+  
+  switch (recurrence.type) {
+    case "daily":
+      nextDate.setDate(nextDate.getDate() + recurrence.interval);
+      break;
+    case "weekly":
+      nextDate.setDate(nextDate.getDate() + (7 * recurrence.interval));
+      break;
+    case "monthly":
+      nextDate.setMonth(nextDate.getMonth() + recurrence.interval);
+      break;
+  }
+  
+  return nextDate;
+};
 
 export const LABEL_COLORS = [
   "#ef4444", // red
