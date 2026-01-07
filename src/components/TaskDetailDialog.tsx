@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { format, parse, isValid } from "date-fns";
-import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink, Inbox, ArrowDown, Minus, ArrowUp, AlertTriangle } from "lucide-react";
+import { Calendar as CalendarIcon, X, Plus, ChevronRight, ExternalLink, Inbox, ArrowDown, Minus, ArrowUp, AlertTriangle, Repeat } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import TaskNotes from "./TaskNotes";
 import FileAttachment from "./FileAttachment";
 import LabelSelector from "./LabelSelector";
-import { Task, TaskStatus, TaskPriority, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project } from "@/types/task";
+import { Task, TaskStatus, TaskPriority, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project, RecurrenceType, RecurrenceConfig, RECURRENCE_OPTIONS } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskDetailDialogProps {
@@ -100,6 +100,8 @@ const TaskDetailDialog = ({
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [newSubTaskTitle, setNewSubTaskTitle] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>("none");
+  const [recurrenceInterval, setRecurrenceInterval] = useState(1);
 
   // Build parent chain for breadcrumb navigation
   const parentChain = useMemo(() => {
@@ -134,11 +136,17 @@ const TaskDetailDialog = ({
       setAttachments(task.attachments);
       setSubTasks(task.subTasks);
       setProjectId(task.projectId);
+      setRecurrenceType(task.recurrence?.type || "none");
+      setRecurrenceInterval(task.recurrence?.interval || 1);
     }
   }, [task]);
 
   const handleSave = () => {
     if (task) {
+      const recurrence: RecurrenceConfig | null = recurrenceType !== "none" 
+        ? { type: recurrenceType, interval: recurrenceInterval }
+        : null;
+      
       onUpdate({
         ...task,
         title,
@@ -151,6 +159,7 @@ const TaskDetailDialog = ({
         attachments,
         subTasks,
         projectId,
+        recurrence,
         completed: status === "done",
       });
       onOpenChange(false);
@@ -465,6 +474,44 @@ const TaskDetailDialog = ({
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+          </div>
+
+          {/* Recurrence */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground flex items-center gap-2">
+              <Repeat className="w-4 h-4" />
+              Repeat
+            </label>
+            <div className="flex gap-2">
+              <Select value={recurrenceType} onValueChange={(v) => setRecurrenceType(v as RecurrenceType)}>
+                <SelectTrigger className="flex-1 bg-secondary/50 border-border">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {RECURRENCE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {recurrenceType !== "none" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Every</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={recurrenceInterval}
+                    onChange={(e) => setRecurrenceInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 px-2 py-2 bg-secondary/50 border border-border rounded-md text-foreground text-center focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {recurrenceType === "daily" ? "day(s)" : recurrenceType === "weekly" ? "week(s)" : "month(s)"}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

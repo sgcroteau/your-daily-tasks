@@ -12,7 +12,7 @@ import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Task, TaskPriority, TaskLabel, PRIORITY_CONFIG } from "@/types/task";
+import { Task, TaskPriority, TaskLabel, PRIORITY_CONFIG, getNextDueDate } from "@/types/task";
 import { filterTasksBySearch } from "@/lib/searchUtils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -134,17 +134,63 @@ const Index = () => {
   };
 
   const toggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((task) =>
+    setTasks((prev) => {
+      const taskToToggle = prev.find((t) => t.id === id);
+      if (!taskToToggle) return prev;
+      
+      const isCompleting = !taskToToggle.completed;
+      
+      // If completing a recurring task, create the next occurrence
+      if (isCompleting && taskToToggle.recurrence && taskToToggle.recurrence.type !== "none") {
+        const nextDueDate = getNextDueDate(taskToToggle.dueDate, taskToToggle.recurrence);
+        const newTask: Task = {
+          id: crypto.randomUUID(),
+          title: taskToToggle.title,
+          description: taskToToggle.description,
+          status: "todo" as const,
+          priority: taskToToggle.priority,
+          dueDate: nextDueDate,
+          completed: false,
+          notes: [],
+          attachments: taskToToggle.attachments,
+          subTasks: taskToToggle.subTasks.map((st) => ({
+            ...st,
+            id: crypto.randomUUID(),
+            completed: false,
+            status: "todo" as const,
+          })),
+          parentId: taskToToggle.parentId,
+          depth: taskToToggle.depth,
+          createdAt: new Date(),
+          projectId: taskToToggle.projectId,
+          labelIds: taskToToggle.labelIds,
+          recurrence: taskToToggle.recurrence,
+        };
+        
+        const updatedTasks = prev.map((task) =>
+          task.id === id
+            ? { 
+                ...task, 
+                completed: true,
+                status: "done" as const,
+                recurrence: null,
+              }
+            : task
+        );
+        
+        return [newTask, ...updatedTasks];
+      }
+      
+      return prev.map((task) =>
         task.id === id
           ? { 
               ...task, 
               completed: !task.completed,
-              status: !task.completed ? "done" : "todo"
+              status: !task.completed ? "done" as const : "todo" as const
             }
           : task
-      )
-    );
+      );
+    });
   };
 
   const deleteTask = (id: string) => {
