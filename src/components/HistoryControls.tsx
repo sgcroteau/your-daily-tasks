@@ -1,4 +1,4 @@
-import { Undo2, Redo2, FolderSync, FolderOpen, Save, Download, Unplug } from "lucide-react";
+import { Undo2, Redo2, FolderSync, FolderOpen, Save, Download, Unplug, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -32,6 +32,8 @@ interface HistoryControlsProps {
   folderName: string | null;
   isConnected: boolean;
   isAutoSaving: boolean;
+  isSynced: boolean;
+  lastSavedTime: Date | null;
   autoSaveMode: AutoSaveMode;
   onAutoSaveModeChange: (mode: AutoSaveMode) => void;
 }
@@ -48,9 +50,50 @@ export const HistoryControls = ({
   folderName,
   isConnected,
   isAutoSaving,
+  isSynced,
+  lastSavedTime,
   autoSaveMode,
   onAutoSaveModeChange,
 }: HistoryControlsProps) => {
+  const formatLastSaved = (date: Date | null) => {
+    if (!date) return null;
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diff < 60) return "just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    return date.toLocaleTimeString();
+  };
+
+  const getSyncIcon = () => {
+    if (isAutoSaving) {
+      return <Loader2 className="h-4 w-4 animate-spin text-yellow-500" />;
+    }
+    if (isConnected && isSynced) {
+      return (
+        <div className="relative">
+          <FolderSync className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 text-green-600 dark:text-green-400" />
+        </div>
+      );
+    }
+    if (isConnected && !isSynced) {
+      return (
+        <div className="relative">
+          <FolderSync className="h-4 w-4 text-yellow-500" />
+          <div className="h-2 w-2 absolute -bottom-0.5 -right-0.5 bg-yellow-500 rounded-full animate-pulse" />
+        </div>
+      );
+    }
+    return <FolderSync className="h-4 w-4" />;
+  };
+
+  const getTooltipText = () => {
+    if (!isConnected) return "Folder Sync";
+    if (isAutoSaving) return "Saving...";
+    if (isSynced) return `Synced${lastSavedTime ? ` • ${formatLastSaved(lastSavedTime)}` : ""}`;
+    return "Unsaved changes";
+  };
+
   return (
     <div className="flex items-center gap-1">
       <TooltipProvider>
@@ -92,22 +135,53 @@ export const HistoryControls = ({
       </TooltipProvider>
 
       <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`h-8 w-8 ${isConnected ? "text-green-600 dark:text-green-400" : ""}`}
-          >
-            <FolderSync className="h-4 w-4" />
-          </Button>
-        </PopoverTrigger>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 relative"
+                >
+                  {getSyncIcon()}
+                </Button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{getTooltipText()}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <PopoverContent className="w-72" align="end">
           <div className="space-y-4">
             <div className="space-y-2">
-              <h4 className="font-medium text-sm">Folder Sync</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="font-medium text-sm">Folder Sync</h4>
+                {isConnected && (
+                  <span className={`text-xs flex items-center gap-1 ${isSynced ? "text-green-600 dark:text-green-400" : "text-yellow-500"}`}>
+                    {isAutoSaving ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Saving...
+                      </>
+                    ) : isSynced ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        Synced
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-2 w-2 bg-yellow-500 rounded-full animate-pulse" />
+                        Unsaved
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {isConnected
-                  ? `Connected to "${folderName}"`
+                  ? `Connected to "${folderName}"${lastSavedTime ? ` • Last saved ${formatLastSaved(lastSavedTime)}` : ""}`
                   : "Select a folder to auto-save your tasks"}
               </p>
             </div>
