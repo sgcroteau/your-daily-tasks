@@ -8,9 +8,11 @@ import TaskBackupControls from "@/components/TaskBackupControls";
 import SearchInput from "@/components/SearchInput";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
+import { HistoryControls } from "@/components/HistoryControls";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
+import { useHistoryStorage } from "@/hooks/useHistoryStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Task, TaskPriority, TaskLabel, PRIORITY_CONFIG, getNextDueDate } from "@/types/task";
 import { filterTasksBySearch } from "@/lib/searchUtils";
@@ -39,6 +41,22 @@ const Index = () => {
   const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
   const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
   const { labels, addLabel } = useLabelStorage();
+  const {
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    selectFolder,
+    disconnectFolder,
+    manualSave,
+    loadFromFolder,
+    folderName,
+    isConnected,
+    isAutoSaving,
+    autoSaveMode,
+    setAutoSaveMode,
+  } = useHistoryStorage(tasks, setTasks, isLoaded);
+  
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -350,6 +368,21 @@ const Index = () => {
                   {pageTitle}
                 </h1>
               </div>
+              <HistoryControls
+                onUndo={undo}
+                onRedo={redo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onSelectFolder={selectFolder}
+                onDisconnectFolder={disconnectFolder}
+                onManualSave={manualSave}
+                onLoadFromFolder={loadFromFolder}
+                folderName={folderName}
+                isConnected={isConnected}
+                isAutoSaving={isAutoSaving}
+                autoSaveMode={autoSaveMode}
+                onAutoSaveModeChange={setAutoSaveMode}
+              />
               <TaskBackupControls
                 onExport={exportTasks}
                 onImport={importTasks}
