@@ -228,6 +228,15 @@ export const useHistoryStorage = (
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [undo, redo]);
 
+  // Check if running in iframe
+  const isInIframe = useCallback(() => {
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  }, []);
+
   // Select folder using File System Access API
   const selectFolder = useCallback(async () => {
     if (!("showDirectoryPicker" in window)) {
@@ -235,6 +244,15 @@ export const useHistoryStorage = (
         title: "Not supported",
         description: "Your browser doesn't support folder selection. Try Chrome or Edge.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if in iframe - File System Access API doesn't work in iframes
+    if (isInIframe()) {
+      toast({
+        title: "Open in new tab required",
+        description: "Folder sync requires opening the app in its own tab. Click the link below the preview to open it.",
       });
       return;
     }
@@ -264,6 +282,13 @@ export const useHistoryStorage = (
         // User cancelled
         return;
       }
+      if (error instanceof DOMException && error.name === "SecurityError") {
+        toast({
+          title: "Open in new tab required",
+          description: "Folder sync requires opening the app in its own tab. Click 'Open in new tab' below the preview.",
+        });
+        return;
+      }
       console.error("Failed to select folder:", error);
       toast({
         title: "Failed to select folder",
@@ -271,7 +296,7 @@ export const useHistoryStorage = (
         variant: "destructive",
       });
     }
-  }, [tasks, toast]);
+  }, [tasks, toast, isInIframe]);
 
   // Manual save
   const manualSave = useCallback(async () => {
