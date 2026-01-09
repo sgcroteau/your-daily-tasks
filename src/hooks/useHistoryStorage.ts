@@ -42,8 +42,11 @@ export const useHistoryStorage = (
     folderName: null,
   });
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isSynced, setIsSynced] = useState(true);
+  const [lastSavedTime, setLastSavedTime] = useState<Date | null>(null);
   const isUndoRedoAction = useRef(false);
   const lastSavedRef = useRef<number>(0);
+  const lastSavedTasksRef = useRef<string>("");
   const autoSaveIntervalRef = useRef<number | null>(null);
 
   // Load settings from localStorage on mount
@@ -125,16 +128,23 @@ export const useHistoryStorage = (
   const saveToFolder = useCallback(async () => {
     if (!settings.folderHandle) return false;
 
+    setIsAutoSaving(true);
     try {
       const fileHandle = await settings.folderHandle.getFileHandle("tasks-backup.json", {
         create: true,
       });
       const writable = await fileHandle.createWritable();
-      await writable.write(serializeTasks(tasks));
+      const serialized = serializeTasks(tasks);
+      await writable.write(serialized);
       await writable.close();
       lastSavedRef.current = Date.now();
+      lastSavedTasksRef.current = serialized;
+      setIsSynced(true);
+      setLastSavedTime(new Date());
+      setIsAutoSaving(false);
       return true;
     } catch (error) {
+      setIsAutoSaving(false);
       console.error("Failed to save to folder:", error);
       // Handle permission errors - folder access may have been revoked
       if (error instanceof DOMException && error.name === "NotAllowedError") {
@@ -148,6 +158,16 @@ export const useHistoryStorage = (
       return false;
     }
   }, [settings.folderHandle, tasks, toast]);
+
+  // Track if tasks have changed since last save
+  useEffect(() => {
+    if (settings.folderHandle && isLoaded) {
+      const currentTasks = serializeTasks(tasks);
+      if (lastSavedTasksRef.current && currentTasks !== lastSavedTasksRef.current) {
+        setIsSynced(false);
+      }
+    }
+  }, [tasks, settings.folderHandle, isLoaded]);
 
   // Auto-save on every change
   useEffect(() => {
@@ -392,6 +412,8 @@ export const useHistoryStorage = (
     folderName: settings.folderName,
     isConnected: !!settings.folderHandle,
     isAutoSaving,
+    isSynced,
+    lastSavedTime,
     
     // Settings
     autoSaveMode: settings.autoSaveMode,

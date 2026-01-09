@@ -53,6 +53,8 @@ const Index = () => {
     folderName,
     isConnected,
     isAutoSaving,
+    isSynced,
+    lastSavedTime,
     autoSaveMode,
     setAutoSaveMode,
   } = useHistoryStorage(tasks, setTasks, isLoaded);
@@ -380,6 +382,8 @@ const Index = () => {
                 folderName={folderName}
                 isConnected={isConnected}
                 isAutoSaving={isAutoSaving}
+                isSynced={isSynced}
+                lastSavedTime={lastSavedTime}
                 autoSaveMode={autoSaveMode}
                 onAutoSaveModeChange={setAutoSaveMode}
               />
