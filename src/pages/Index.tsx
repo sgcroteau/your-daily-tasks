@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
-import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, UniqueIdentifier } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
@@ -271,12 +272,25 @@ const Index = () => {
     const taskId = active.id as string;
     const overId = over.id as string;
 
-    // Check if dropped on a project or inbox
+    // Check if dropped on a project or inbox in sidebar
     if (overId === "sidebar-inbox") {
       moveTaskToProject(taskId, null);
-    } else if (overId.startsWith("sidebar-project-")) {
+      return;
+    }
+    if (overId.startsWith("sidebar-project-")) {
       const projectId = overId.replace("sidebar-project-", "");
       moveTaskToProject(taskId, projectId);
+      return;
+    }
+
+    // Otherwise, handle reordering within the task list
+    if (active.id !== over.id) {
+      const oldIndex = filteredTasks.findIndex((t) => t.id === active.id);
+      const newIndex = filteredTasks.findIndex((t) => t.id === over.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderTasks(arrayMove(filteredTasks, oldIndex, newIndex));
+      }
     }
   };
 
