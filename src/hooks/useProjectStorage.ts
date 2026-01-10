@@ -60,14 +60,16 @@ export const useProjectStorage = () => {
     }
   }, [projects, isLoaded, toast]);
 
-  const addProject = useCallback((name: string) => {
-    const usedColors = projects.map(p => p.color);
-    const availableColor = PROJECT_COLORS.find(c => !usedColors.includes(c)) || PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)];
+  const addProject = useCallback((name: string, color?: string) => {
+    const projectColor = color || (() => {
+      const usedColors = projects.map(p => p.color);
+      return PROJECT_COLORS.find(c => !usedColors.includes(c)) || PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)];
+    })();
     
     const newProject: Project = {
       id: crypto.randomUUID(),
       name: name.trim(),
-      color: availableColor,
+      color: projectColor,
       createdAt: new Date(),
     };
     setProjects(prev => [...prev, newProject]);

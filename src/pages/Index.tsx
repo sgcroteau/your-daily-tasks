@@ -10,10 +10,12 @@ import SearchInput from "@/components/SearchInput";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HistoryControls } from "@/components/HistoryControls";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
 import { useHistoryStorage } from "@/hooks/useHistoryStorage";
+import { usePreferencesStorage } from "@/hooks/usePreferencesStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Task, TaskPriority, TaskLabel, PRIORITY_CONFIG, getNextDueDate } from "@/types/task";
 import { filterTasksBySearch } from "@/lib/searchUtils";
@@ -42,6 +44,7 @@ const Index = () => {
   const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
   const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
   const { labels, addLabel } = useLabelStorage();
+  const { preferences, updatePreference } = usePreferencesStorage();
   const {
     undo,
     redo,
@@ -407,6 +410,10 @@ const Index = () => {
                 onClear={clearTasks}
                 taskCount={tasks.length}
               />
+              <SettingsDialog
+                preferences={preferences}
+                onUpdatePreference={updatePreference}
+              />
               <ThemeToggle />
             </div>
           </header>
@@ -425,6 +432,7 @@ const Index = () => {
                 projectId={selectedProjectId} 
                 labels={labels}
                 onCreateLabel={addLabel}
+                defaultPriority={preferences.defaultPriority}
               />
               
               {/* Filter and Sort Controls */}
