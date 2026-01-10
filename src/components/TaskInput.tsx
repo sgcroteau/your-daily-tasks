@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, ChevronDown, ChevronUp, Calendar, X, MessageSquare, ListTree, ChevronRight, Paperclip, ArrowDown, Minus, ArrowUp, AlertTriangle, Tag } from "lucide-react";
 import { Task, TaskStatus, TaskPriority, TaskLabel, TaskNote, TaskAttachment, STATUS_CONFIG, PRIORITY_CONFIG, createEmptyTask, MAX_DEPTH } from "@/types/task";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ interface TaskInputProps {
   projectId?: string | null;
   labels: TaskLabel[];
   onCreateLabel: (name: string, color: string) => TaskLabel;
+  defaultPriority?: TaskPriority;
 }
 
 interface SubTaskInput {
@@ -54,12 +55,12 @@ const PRIORITY_ICONS = {
   urgent: AlertTriangle,
 };
 
-const TaskInput = ({ onAddTask, projectId = null, labels, onCreateLabel }: TaskInputProps) => {
+const TaskInput = ({ onAddTask, projectId = null, labels, onCreateLabel, defaultPriority = "medium" }: TaskInputProps) => {
   const [title, setTitle] = useState("");
   const [expanded, setExpanded] = useState(false);
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<TaskStatus>("todo");
-  const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [priority, setPriority] = useState<TaskPriority>(defaultPriority);
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [subTasks, setSubTasks] = useState<SubTaskInput[]>([]);
@@ -72,7 +73,7 @@ const TaskInput = ({ onAddTask, projectId = null, labels, onCreateLabel }: TaskI
     setTitle("");
     setDescription("");
     setStatus("todo");
-    setPriority("medium");
+    setPriority(defaultPriority);
     setSelectedLabelIds([]);
     setDueDate(null);
     setSubTasks([]);
@@ -84,7 +85,12 @@ const TaskInput = ({ onAddTask, projectId = null, labels, onCreateLabel }: TaskI
     setExpanded(false);
   };
 
-  // Convert SubTaskInput tree to Task tree
+  // Sync priority when default preference changes
+  useEffect(() => {
+    if (!title.trim()) {
+      setPriority(defaultPriority);
+    }
+  }, [defaultPriority]);
   const convertSubTasksToTasks = (inputs: SubTaskInput[], depth: number, taskProjectId: string | null): Task[] => {
     const now = new Date();
     return inputs

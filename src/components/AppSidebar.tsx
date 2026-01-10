@@ -23,12 +23,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ProjectColorPicker } from "@/components/ProjectColorPicker";
 
 interface AppSidebarProps {
   projects: Project[];
   selectedProjectId: string | null; // null = Inbox
   onSelectProject: (projectId: string | null) => void;
-  onAddProject: (name: string) => Project;
+  onAddProject: (name: string, color: string) => Project;
   onUpdateProject: (id: string, updates: Partial<Pick<Project, "name" | "color">>) => void;
   onDeleteProject: (id: string) => void;
   taskCounts: { inbox: number; byProject: Record<string, number> };
@@ -74,32 +75,40 @@ export function AppSidebar({
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectColor, setNewProjectColor] = useState(PROJECT_COLORS[0]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editColor, setEditColor] = useState("");
+  const [addPopoverOpen, setAddPopoverOpen] = useState(false);
 
   const handleAddProject = () => {
     if (newProjectName.trim()) {
-      onAddProject(newProjectName.trim());
+      onAddProject(newProjectName.trim(), newProjectColor);
       setNewProjectName("");
+      setNewProjectColor(PROJECT_COLORS[0]);
+      setAddPopoverOpen(false);
     }
   };
 
   const startEdit = (project: Project) => {
     setEditingId(project.id);
     setEditName(project.name);
+    setEditColor(project.color);
   };
 
   const saveEdit = () => {
     if (editingId && editName.trim()) {
-      onUpdateProject(editingId, { name: editName.trim() });
+      onUpdateProject(editingId, { name: editName.trim(), color: editColor });
       setEditingId(null);
       setEditName("");
+      setEditColor("");
     }
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
+    setEditColor("");
   };
 
   return (
@@ -141,20 +150,27 @@ export function AppSidebar({
           <SidebarGroupLabel className="flex items-center justify-between">
             <span>Projects</span>
             {!collapsed && (
-              <Popover>
+              <Popover open={addPopoverOpen} onOpenChange={setAddPopoverOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-5 w-5">
                     <Plus className="h-3 w-3" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 p-3" align="start">
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <Input
                       value={newProjectName}
                       onChange={(e) => setNewProjectName(e.target.value)}
                       placeholder="Project name..."
                       onKeyDown={(e) => e.key === "Enter" && handleAddProject()}
                     />
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-2 block">Color</label>
+                      <ProjectColorPicker
+                        selectedColor={newProjectColor}
+                        onSelectColor={setNewProjectColor}
+                      />
+                    </div>
                     <Button size="sm" onClick={handleAddProject} disabled={!newProjectName.trim()} className="w-full">
                       <Plus className="h-4 w-4 mr-2" /> Add Project
                     </Button>
@@ -169,7 +185,7 @@ export function AppSidebar({
               {projects.map((project) => (
                 <SidebarMenuItem key={project.id} className="group">
                   {editingId === project.id ? (
-                    <div className="flex items-center gap-1 px-2 py-1">
+                    <div className="space-y-2 px-2 py-2">
                       <Input
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
@@ -180,12 +196,18 @@ export function AppSidebar({
                         className="h-7 text-sm"
                         autoFocus
                       />
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={saveEdit}>
-                        <Check className="h-3 w-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={cancelEdit}>
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <ProjectColorPicker
+                        selectedColor={editColor}
+                        onSelectColor={setEditColor}
+                      />
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" className="flex-1" onClick={saveEdit}>
+                          <Check className="h-3 w-3 mr-1" /> Save
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <DroppableSidebarItem id={`sidebar-project-${project.id}`} isDragging={isDragging}>
