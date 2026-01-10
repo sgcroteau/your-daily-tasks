@@ -72,7 +72,9 @@ export const HistoryControls = ({
       return (
         <div className="relative">
           <FolderSync className="h-4 w-4 text-green-600 dark:text-green-400" />
-          <Check className="h-2.5 w-2.5 absolute -bottom-0.5 -right-0.5 text-green-600 dark:text-green-400" />
+          <div className="absolute -bottom-1 -right-1 h-3.5 w-3.5 bg-background rounded-full flex items-center justify-center border border-green-600 dark:border-green-400">
+            <Check className="h-2.5 w-2.5 text-green-600 dark:text-green-400 stroke-[3]" />
+          </div>
         </div>
       );
     }
