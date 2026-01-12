@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, BookOpen, Calendar, Tag, FolderKanban, FileText, Paperclip, Link2 } from "lucide-react";
+import { ArrowLeft, Search, BookOpen, Calendar, FolderKanban, FileText, Paperclip, Link2, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { Task, TaskNote, Project, TaskLabel } from "@/types/task";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import HighlightText from "@/components/HighlightText";
+import NotebookGraph from "@/components/NotebookGraph";
 
 interface NotebookEntry {
   id: string;
@@ -151,7 +152,7 @@ const Notebook = () => {
   const { labels } = useLabelStorage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntry, setSelectedEntry] = useState<NotebookEntry | null>(null);
-  const [viewMode, setViewMode] = useState<"timeline" | "project" | "related">("timeline");
+  const [viewMode, setViewMode] = useState<"timeline" | "project" | "graph">("timeline");
 
   const allEntries = useMemo(() => buildNotebookEntries(tasks), [tasks]);
 
@@ -294,17 +295,11 @@ const Notebook = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <Card>
             <CardContent className="pt-4">
               <div className="text-2xl font-bold">{allEntries.filter(e => e.type === "task").length}</div>
-              <p className="text-xs text-muted-foreground">Total Tasks</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{allEntries.filter(e => e.type === "note").length}</div>
-              <p className="text-xs text-muted-foreground">Total Notes</p>
+              <p className="text-xs text-muted-foreground">Total Entries</p>
             </CardContent>
           </Card>
           <Card>
@@ -332,8 +327,8 @@ const Notebook = () => {
                 <TabsTrigger value="project" className="flex items-center gap-1.5">
                   <FolderKanban className="h-3.5 w-3.5" /> By Project
                 </TabsTrigger>
-                <TabsTrigger value="related" className="flex items-center gap-1.5">
-                  <Link2 className="h-3.5 w-3.5" /> Related
+                <TabsTrigger value="graph" className="flex items-center gap-1.5">
+                  <Network className="h-3.5 w-3.5" /> Graph
                 </TabsTrigger>
               </TabsList>
 
@@ -393,12 +388,19 @@ const Notebook = () => {
                 </ScrollArea>
               </TabsContent>
 
-              <TabsContent value="related">
-                <ScrollArea className="h-[calc(100vh-380px)]">
-                  <div className="space-y-3 pr-4">
-                    {filteredEntries.map(e => renderEntry(e, true))}
-                  </div>
-                </ScrollArea>
+              <TabsContent value="graph">
+                <NotebookGraph 
+                  entries={filteredEntries}
+                  projects={projects}
+                  onSelectEntry={(entryId) => {
+                    const entry = allEntries.find(e => e.id === entryId);
+                    if (entry) setSelectedEntry(entry);
+                  }}
+                  selectedEntryId={selectedEntry?.id}
+                />
+                <p className="text-xs text-muted-foreground mt-3 text-center">
+                  Click on nodes to view details. Connected entries share keywords, projects, or labels.
+                </p>
               </TabsContent>
             </Tabs>
           </div>
