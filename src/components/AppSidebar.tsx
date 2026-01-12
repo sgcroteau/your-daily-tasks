@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useDroppable } from "@dnd-kit/core";
-import { Inbox, FolderKanban, Plus, Trash2, Pencil, Check, X } from "lucide-react";
+import { Inbox, FolderKanban, Plus, Trash2, Pencil, Check, X, BookOpen } from "lucide-react";
 import { Project, PROJECT_COLORS } from "@/types/task";
 import { cn } from "@/lib/utils";
 import {
@@ -72,6 +73,8 @@ export function AppSidebar({
   taskCounts,
   isDragging = false,
 }: AppSidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const [newProjectName, setNewProjectName] = useState("");
@@ -141,6 +144,22 @@ export function AppSidebar({
                   )}
                 </SidebarMenuButton>
               </DroppableSidebarItem>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {/* Notebook */}
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => navigate("/notebook")}
+                isActive={location.pathname === "/notebook"}
+                tooltip="Notebook"
+              >
+                <BookOpen className="h-4 w-4" />
+                {!collapsed && <span className="flex-1">Notebook</span>}
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
