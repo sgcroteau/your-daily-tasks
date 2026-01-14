@@ -42,7 +42,7 @@ src/
 │   ├── TaskNotes.tsx    # Notes section within task detail
 │   ├── TaskStats.tsx    # Progress bar showing completion
 │   ├── NotebookGraph.tsx      # Force-directed graph visualization
-│   ├── SettingsDialog.tsx     # User preferences modal
+│   ├── SettingsDialog.tsx     # Unified settings (theme, preferences, data management)
 │   ├── HistoryControls.tsx    # Undo/redo + folder sync controls
 │   └── ...
 ├── hooks/               # Custom React hooks
