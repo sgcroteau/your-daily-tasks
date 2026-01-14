@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, BookOpen, Calendar, FolderKanban, FileText, Paperclip, Link2, Network } from "lucide-react";
+import { ArrowLeft, Search, BookOpen, Calendar, FolderKanban, FileText, Paperclip, Link2, Network, CornerDownRight, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,9 @@ interface NotebookEntry {
   labelIds: string[];
   createdAt: Date;
   keywords: string[];
+  depth: number; // Task tree depth level
+  parentId: string | null; // For subtask hierarchy visualization
+  hasSubtasks: boolean;
 }
 
 // Extract keywords from text for relation mapping
@@ -39,27 +42,24 @@ const extractKeywords = (text: string): string[] => {
   return [...new Set(words)];
 };
 
-// Flatten all tasks including subtasks
-const flattenTasks = (tasks: Task[]): Task[] => {
-  const result: Task[] = [];
-  const flatten = (taskList: Task[]) => {
-    for (const task of taskList) {
-      result.push(task);
-      if (task.subTasks.length > 0) {
-        flatten(task.subTasks);
-      }
+// Flatten all tasks including subtasks, preserving hierarchy info
+const flattenTasks = (tasks: Task[], parentId: string | null = null, depth: number = 0): { task: Task; parentId: string | null; depth: number }[] => {
+  const result: { task: Task; parentId: string | null; depth: number }[] = [];
+  for (const task of tasks) {
+    result.push({ task, parentId, depth });
+    if (task.subTasks.length > 0) {
+      result.push(...flattenTasks(task.subTasks, task.id, depth + 1));
     }
-  };
-  flatten(tasks);
+  }
   return result;
 };
 
 // Build notebook entries from tasks
 const buildNotebookEntries = (tasks: Task[]): NotebookEntry[] => {
-  const allTasks = flattenTasks(tasks);
+  const flatTasks = flattenTasks(tasks);
   const entries: NotebookEntry[] = [];
 
-  for (const task of allTasks) {
+  for (const { task, parentId, depth } of flatTasks) {
     // Add task as entry
     const taskKeywords = extractKeywords(`${task.title} ${task.description}`);
     entries.push({
@@ -72,6 +72,9 @@ const buildNotebookEntries = (tasks: Task[]): NotebookEntry[] => {
       labelIds: task.labelIds || [],
       createdAt: task.createdAt,
       keywords: taskKeywords,
+      depth,
+      parentId,
+      hasSubtasks: task.subTasks.length > 0,
     });
 
     // Add each note as entry
@@ -88,6 +91,9 @@ const buildNotebookEntries = (tasks: Task[]): NotebookEntry[] => {
         labelIds: task.labelIds || [],
         createdAt: note.createdAt,
         keywords: noteKeywords,
+        depth,
+        parentId,
+        hasSubtasks: false,
       });
     }
   }
@@ -193,13 +199,24 @@ const Notebook = () => {
       key={entry.id}
       className={cn(
         "cursor-pointer transition-all hover:shadow-md",
-        selectedEntry?.id === entry.id && "ring-2 ring-primary"
+        selectedEntry?.id === entry.id && "ring-2 ring-primary",
+        entry.depth > 0 && "border-l-4 border-l-primary/30"
       )}
+      style={{
+        marginLeft: entry.depth > 0 ? `${entry.depth * 16}px` : undefined,
+      }}
       onClick={() => setSelectedEntry(entry)}
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
+            {/* Tree hierarchy indicator */}
+            {entry.depth > 0 && (
+              <div className="flex items-center gap-0.5 text-muted-foreground mr-1">
+                <CornerDownRight className="h-3 w-3" />
+                <span className="text-[10px] font-medium">L{entry.depth}</span>
+              </div>
+            )}
             {entry.type === "task" ? (
               <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
             ) : (
@@ -209,9 +226,17 @@ const Notebook = () => {
               <HighlightText text={entry.title} query={searchQuery} />
             </CardTitle>
           </div>
-          {entry.task.completed && (
-            <Badge variant="secondary" className="text-xs shrink-0">Completed</Badge>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {entry.hasSubtasks && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
+                <GitBranch className="h-2.5 w-2.5" />
+                Tree
+              </Badge>
+            )}
+            {entry.task.completed && (
+              <Badge variant="secondary" className="text-xs">Completed</Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
