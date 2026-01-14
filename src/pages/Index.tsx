@@ -91,9 +91,21 @@ const Index = () => {
     return counts;
   }, [tasks]);
 
+  // Helper to check if a task tree is fully completed
+  const isFullyCompleted = useCallback((task: Task): boolean => {
+    if (!task.completed) return false;
+    return task.subTasks.every(st => isFullyCompleted(st));
+  }, []);
+
   // Filter tasks by selected project, search query, priority, and labels
+  // Also archive (hide) tasks where the entire tree is completed
   const filteredTasks = useMemo(() => {
-    let projectTasks = tasks.filter((task) => task.projectId === selectedProjectId);
+    // Filter out fully completed task trees
+    let projectTasks = tasks.filter((task) => {
+      if (task.projectId !== selectedProjectId) return false;
+      // Hide tasks where the entire tree (parent + all subtasks) is completed
+      return !isFullyCompleted(task);
+    });
     
     // Apply priority filter
     if (priorityFilter !== "all") {
@@ -133,7 +145,7 @@ const Index = () => {
     }
     
     return result;
-  }, [tasks, selectedProjectId, debouncedSearchQuery, priorityFilter, labelFilter, sortOption]);
+  }, [tasks, selectedProjectId, debouncedSearchQuery, priorityFilter, labelFilter, sortOption, isFullyCompleted]);
 
   // Handle project deletion - move tasks to inbox
   const handleDeleteProject = (projectId: string) => {
