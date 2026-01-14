@@ -5,9 +5,7 @@ import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
 import TaskDetailDialog from "@/components/TaskDetailDialog";
-import TaskBackupControls from "@/components/TaskBackupControls";
 import SearchInput from "@/components/SearchInput";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HistoryControls } from "@/components/HistoryControls";
 import { SettingsDialog } from "@/components/SettingsDialog";
@@ -416,17 +414,14 @@ const Index = () => {
                 autoSaveMode={autoSaveMode}
                 onAutoSaveModeChange={setAutoSaveMode}
               />
-              <TaskBackupControls
+              <SettingsDialog
+                preferences={preferences}
+                onUpdatePreference={updatePreference}
                 onExport={exportTasks}
                 onImport={importTasks}
                 onClear={clearTasks}
                 taskCount={tasks.length}
               />
-              <SettingsDialog
-                preferences={preferences}
-                onUpdatePreference={updatePreference}
-              />
-              <ThemeToggle />
             </div>
           </header>
 
