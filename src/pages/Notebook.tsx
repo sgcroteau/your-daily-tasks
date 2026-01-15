@@ -1,6 +1,18 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, BookOpen, Calendar, FolderKanban, FileText, Paperclip, Link2, Network, CornerDownRight, GitBranch } from "lucide-react";
+import {
+  ArrowLeft,
+  Search,
+  BookOpen,
+  Calendar,
+  FolderKanban,
+  FileText,
+  Paperclip,
+  Link2,
+  Network,
+  CornerDownRight,
+  GitBranch,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSidebar } from "@/components/AppSidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
@@ -154,11 +168,25 @@ const groupByProject = (entries: NotebookEntry[], projects: Project[]): Record<s
 const Notebook = () => {
   const navigate = useNavigate();
   const { tasks } = useTaskStorage();
-  const { projects } = useProjectStorage();
+  const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
   const { labels } = useLabelStorage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntry, setSelectedEntry] = useState<NotebookEntry | null>(null);
-  const [viewMode, setViewMode] = useState<"timeline" | "project" | "graph">("timeline");
+  const [viewMode, setViewMode] = useState<"timeline" | "project" | "graph">(
+    "timeline"
+  );
+
+  const taskCounts = useMemo(() => {
+    const counts = { inbox: 0, byProject: {} as Record<string, number> };
+    tasks.forEach((task) => {
+      if (task.projectId === null) {
+        counts.inbox++;
+      } else {
+        counts.byProject[task.projectId] = (counts.byProject[task.projectId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [tasks]);
 
   const allEntries = useMemo(() => buildNotebookEntries(tasks), [tasks]);
 
@@ -540,8 +568,10 @@ const Notebook = () => {
             </Card>
           </div>
         </div>
+          </div>
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 
