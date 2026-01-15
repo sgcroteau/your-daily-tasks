@@ -44,6 +44,7 @@ src/
 │   ├── NotebookGraph.tsx      # Force-directed graph visualization
 │   ├── SettingsDialog.tsx     # Unified settings (theme, preferences, data management)
 │   ├── HistoryControls.tsx    # Undo/redo + folder sync controls
+│   ├── SaveLocationDialog.tsx # Onboarding prompt to select save folder
 │   └── ...
 ├── hooks/               # Custom React hooks
 │   ├── useTaskStorage.ts      # Task CRUD + localStorage persistence
@@ -159,8 +160,9 @@ interface Task {
 **Settings:** `defaultPriority`
 
 ### `useHistoryStorage`
-**Purpose:** Undo/redo + optional File System Access API sync  
-**Returns:** Undo/redo controls, folder connection status, manual save/load
+**Purpose:** Undo/redo + mandatory File System Access API sync  
+**Returns:** Undo/redo controls, folder connection status, manual save/load, `hasPreviousFolderName`  
+**Note:** App shows onboarding dialog until a save folder is connected
 
 ---
 
