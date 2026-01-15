@@ -49,18 +49,25 @@ export const useHistoryStorage = (
   const lastSavedTasksRef = useRef<string>("");
   const autoSaveIntervalRef = useRef<number | null>(null);
 
+  const [previousFolderName, setPreviousFolderName] = useState<string | null>(null);
+
   // Load settings from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(SETTINGS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
+        const storedFolderName = parsed.folderName || null;
         setSettings((prev) => ({
           ...prev,
           autoSaveMode: parsed.autoSaveMode || "every-change",
-          folderName: parsed.folderName || null,
+          folderName: storedFolderName,
           // folderHandle cannot be stored, user needs to re-select folder
         }));
+        // Track if there was a previous folder (for reconnection prompt)
+        if (storedFolderName) {
+          setPreviousFolderName(storedFolderName);
+        }
       }
     } catch (error) {
       console.error("Failed to load history settings:", error);
@@ -414,6 +421,7 @@ export const useHistoryStorage = (
     isAutoSaving,
     isSynced,
     lastSavedTime,
+    hasPreviousFolderName: !!previousFolderName && !settings.folderHandle,
     
     // Settings
     autoSaveMode: settings.autoSaveMode,

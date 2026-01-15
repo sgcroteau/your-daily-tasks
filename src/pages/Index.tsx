@@ -9,6 +9,7 @@ import SearchInput from "@/components/SearchInput";
 import { AppSidebar } from "@/components/AppSidebar";
 import { HistoryControls } from "@/components/HistoryControls";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { SaveLocationDialog } from "@/components/SaveLocationDialog";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
@@ -59,6 +60,7 @@ const Index = () => {
     lastSavedTime,
     autoSaveMode,
     setAutoSaveMode,
+    hasPreviousFolderName,
   } = useHistoryStorage(tasks, setTasks, isLoaded);
   
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -363,13 +365,22 @@ const Index = () => {
   const activeTask = activeTaskId ? findTaskById(activeTaskId) : null;
 
   return (
-    <SidebarProvider>
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="min-h-screen flex w-full bg-background">
+    <>
+      <SaveLocationDialog
+        isOpen={isLoaded && !isConnected}
+        onSelectFolder={selectFolder}
+        onLoadFromFolder={loadFromFolder}
+        isConnected={isConnected}
+        folderName={folderName}
+        hasPreviousFolderName={hasPreviousFolderName}
+      />
+      <SidebarProvider>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="min-h-screen flex w-full bg-background">
           <AppSidebar
             projects={projects}
             selectedProjectId={selectedProjectId}
@@ -572,9 +583,10 @@ const Index = () => {
             </div>
           ) : null}
         </DragOverlay>
-        </div>
-      </DndContext>
-    </SidebarProvider>
+          </div>
+        </DndContext>
+      </SidebarProvider>
+    </>
   );
 };
 
