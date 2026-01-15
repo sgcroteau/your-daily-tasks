@@ -1,6 +1,17 @@
-import { useState, useCallback, useMemo } from "react";
-import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, UniqueIdentifier } from "@dnd-kit/core";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  UniqueIdentifier,
+} from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
+import { useLocation, useNavigate } from "react-router-dom";
 import TaskInput from "@/components/TaskInput";
 import TaskList from "@/components/TaskList";
 import TaskStats from "@/components/TaskStats";
@@ -16,7 +27,13 @@ import { useLabelStorage } from "@/hooks/useLabelStorage";
 import { useHistoryStorage } from "@/hooks/useHistoryStorage";
 import { usePreferencesStorage } from "@/hooks/usePreferencesStorage";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Task, TaskPriority, TaskLabel, PRIORITY_CONFIG, getNextDueDate } from "@/types/task";
+import {
+  Task,
+  TaskPriority,
+  TaskLabel,
+  PRIORITY_CONFIG,
+  getNextDueDate,
+} from "@/types/task";
 import { filterTasksBySearch } from "@/lib/searchUtils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -26,7 +43,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowDown, Minus, ArrowUp, AlertTriangle, ArrowUpDown, Filter, Tag } from "lucide-react";
+import {
+  ArrowDown,
+  Minus,
+  ArrowUp,
+  AlertTriangle,
+  ArrowUpDown,
+  Filter,
+  Tag,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type SortOption = "none" | "priority-high" | "priority-low" | "date-asc" | "date-desc";
@@ -40,8 +65,13 @@ const PRIORITY_ORDER: Record<TaskPriority, number> = {
 };
 
 const Index = () => {
-  const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } = useTaskStorage();
-  const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const { tasks, setTasks, exportTasks, importTasks, clearTasks, isLoaded } =
+    useTaskStorage();
+  const { projects, addProject, updateProject, deleteProject } =
+    useProjectStorage();
   const { labels, addLabel } = useLabelStorage();
   const { preferences, updatePreference } = usePreferencesStorage();
   const {
@@ -62,7 +92,7 @@ const Index = () => {
     setAutoSaveMode,
     hasPreviousFolderName,
   } = useHistoryStorage(tasks, setTasks, isLoaded);
-  
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -73,7 +103,15 @@ const Index = () => {
   const [labelFilter, setLabelFilter] = useState<string>("all");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
-  // Sensors for drag and drop
+  // When coming back from Notebook, restore selected project (Inbox=null)
+  useEffect(() => {
+    const state = location.state as { selectedProjectId?: string | null } | null;
+    if (state && "selectedProjectId" in state) {
+      setSelectedProjectId(state.selectedProjectId ?? null);
+      // Clear state so refreshes/back don't keep re-applying
+      navigate(".", { replace: true, state: null });
+    }
+  }, [location.state, navigate]);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
   );
@@ -367,7 +405,7 @@ const Index = () => {
   return (
     <>
       <SaveLocationDialog
-        isOpen={isLoaded && !isConnected}
+        isOpen={isLoaded && !isConnected && !folderName}
         onSelectFolder={selectFolder}
         onLoadFromFolder={loadFromFolder}
         isConnected={isConnected}
