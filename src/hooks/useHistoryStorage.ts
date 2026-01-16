@@ -11,6 +11,7 @@ interface HistorySettings {
   autoSaveMode: AutoSaveMode;
   folderHandle: FileSystemDirectoryHandle | null;
   folderName: string | null;
+  skippedSetup: boolean;
 }
 
 interface HistoryState {
@@ -40,6 +41,7 @@ export const useHistoryStorage = (
     autoSaveMode: "every-change",
     folderHandle: null,
     folderName: null,
+    skippedSetup: false,
   });
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [isSynced, setIsSynced] = useState(true);
@@ -62,6 +64,7 @@ export const useHistoryStorage = (
           ...prev,
           autoSaveMode: parsed.autoSaveMode || "every-change",
           folderName: storedFolderName,
+          skippedSetup: parsed.skippedSetup || false,
           // folderHandle cannot be stored, user needs to re-select folder
         }));
         // Track if there was a previous folder (for reconnection prompt)
@@ -82,12 +85,13 @@ export const useHistoryStorage = (
         JSON.stringify({
           autoSaveMode: settings.autoSaveMode,
           folderName: settings.folderName,
+          skippedSetup: settings.skippedSetup,
         })
       );
     } catch (error) {
       console.error("Failed to save history settings:", error);
     }
-  }, [settings.autoSaveMode, settings.folderName]);
+  }, [settings.autoSaveMode, settings.folderName, settings.skippedSetup]);
 
   // Initialize history with first state when tasks load
   useEffect(() => {
@@ -402,6 +406,20 @@ export const useHistoryStorage = (
     setSettings((prev) => ({ ...prev, autoSaveMode: mode }));
   }, []);
 
+  // Skip setup (use localStorage only)
+  const skipSetup = useCallback(() => {
+    setSettings((prev) => ({ ...prev, skippedSetup: true }));
+    toast({
+      title: "Using local storage",
+      description: "Your tasks will be saved locally. You can set up folder sync anytime in Settings.",
+    });
+  }, [toast]);
+
+  // Reset skipped state (to show dialog again)
+  const resetSkippedSetup = useCallback(() => {
+    setSettings((prev) => ({ ...prev, skippedSetup: false }));
+  }, []);
+
   return {
     // Undo/Redo
     undo,
@@ -422,6 +440,11 @@ export const useHistoryStorage = (
     isSynced,
     lastSavedTime,
     hasPreviousFolderName: !!previousFolderName && !settings.folderHandle,
+    
+    // Skip setup
+    skippedSetup: settings.skippedSetup,
+    skipSetup,
+    resetSkippedSetup,
     
     // Settings
     autoSaveMode: settings.autoSaveMode,

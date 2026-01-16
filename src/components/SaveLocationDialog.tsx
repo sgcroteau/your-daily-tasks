@@ -7,13 +7,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, FolderSync, AlertCircle, ExternalLink, RefreshCw } from "lucide-react";
+import { FolderOpen, FolderSync, AlertCircle, ExternalLink, RefreshCw, Smartphone, HardDrive } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface SaveLocationDialogProps {
   isOpen: boolean;
   onSelectFolder: () => Promise<void>;
   onLoadFromFolder: () => Promise<void>;
+  onSkip: () => void;
   isConnected: boolean;
   folderName: string | null;
   hasPreviousFolderName: boolean;
@@ -23,6 +24,7 @@ export function SaveLocationDialog({
   isOpen,
   onSelectFolder,
   onLoadFromFolder,
+  onSkip,
   isConnected,
   folderName,
   hasPreviousFolderName,
@@ -30,6 +32,8 @@ export function SaveLocationDialog({
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [isInIframe, setIsInIframe] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [hasFileSystemAccess, setHasFileSystemAccess] = useState(true);
 
   useEffect(() => {
     try {
@@ -37,6 +41,19 @@ export function SaveLocationDialog({
     } catch {
       setIsInIframe(true);
     }
+    
+    // Check if File System Access API is available
+    setHasFileSystemAccess('showDirectoryPicker' in window);
+    
+    // Detect mobile devices
+    const checkMobile = () => {
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isTouchDevice && isSmallScreen);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleSelectNewFolder = async () => {
@@ -64,6 +81,8 @@ export function SaveLocationDialog({
   // Don't render if already connected
   if (isConnected) return null;
 
+  const showFolderOptions = hasFileSystemAccess && !isMobile && !isInIframe;
+
   return (
     <Dialog open={isOpen} modal>
       <DialogContent
@@ -78,12 +97,27 @@ export function SaveLocationDialog({
             Set Up Your Save Location
           </DialogTitle>
           <DialogDescription className="text-base">
-            Choose where your tasks will be automatically saved. This ensures your data is always backed up and accessible.
+            {isMobile || !hasFileSystemAccess
+              ? "Your tasks will be saved locally on this device."
+              : "Choose where your tasks will be automatically saved. This ensures your data is always backed up and accessible."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-4">
-          {isInIframe && (
+          {/* Mobile / No File System Access message */}
+          {(isMobile || !hasFileSystemAccess) && (
+            <Alert>
+              <Smartphone className="h-4 w-4" />
+              <AlertDescription>
+                {isMobile
+                  ? "Folder sync is not available on mobile devices. Your tasks will be saved to this browser's local storage."
+                  : "Your browser doesn't support folder sync. Tasks will be saved to local storage."}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Iframe warning */}
+          {isInIframe && hasFileSystemAccess && !isMobile && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="flex items-center gap-2">
@@ -101,14 +135,15 @@ export function SaveLocationDialog({
             </Alert>
           )}
 
-          {hasPreviousFolderName && (
+          {/* Reconnect option */}
+          {hasPreviousFolderName && showFolderOptions && (
             <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <p className="text-sm text-muted-foreground mb-3">
                 You previously had a save folder connected. Reconnect to continue where you left off:
               </p>
               <Button
                 onClick={handleReconnectFolder}
-                disabled={isReconnecting || isInIframe}
+                disabled={isReconnecting}
                 className="w-full"
                 variant="default"
               >
@@ -127,45 +162,84 @@ export function SaveLocationDialog({
             </div>
           )}
 
-          <div className={hasPreviousFolderName ? "relative" : ""}>
-            {hasPreviousFolderName && (
+          {/* Divider */}
+          {hasPreviousFolderName && showFolderOptions && (
+            <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-border" />
               </div>
-            )}
-            {hasPreviousFolderName && (
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-background px-2 text-muted-foreground">
                   Or
                 </span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
+          {/* Select folder button (only for desktop with File System Access) */}
+          {showFolderOptions && (
+            <Button
+              onClick={handleSelectNewFolder}
+              disabled={isSelectingFolder}
+              variant={hasPreviousFolderName ? "outline" : "default"}
+              className="w-full"
+              size="lg"
+            >
+              {isSelectingFolder ? (
+                <>
+                  <FolderOpen className="w-4 h-4 mr-2 animate-pulse" />
+                  Selecting folder...
+                </>
+              ) : (
+                <>
+                  <FolderOpen className="w-4 h-4 mr-2" />
+                  {hasPreviousFolderName ? "Choose a Different Folder" : "Select Save Folder"}
+                </>
+              )}
+            </Button>
+          )}
+
+          {/* Divider for skip option */}
+          {showFolderOptions && (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Skip / Continue with localStorage */}
           <Button
-            onClick={handleSelectNewFolder}
-            disabled={isSelectingFolder || isInIframe}
-            variant={hasPreviousFolderName ? "outline" : "default"}
+            onClick={onSkip}
+            variant={showFolderOptions ? "ghost" : "default"}
             className="w-full"
-            size="lg"
+            size={showFolderOptions ? "default" : "lg"}
           >
-            {isSelectingFolder ? (
-              <>
-                <FolderOpen className="w-4 h-4 mr-2 animate-pulse" />
-                Selecting folder...
-              </>
-            ) : (
-              <>
-                <FolderOpen className="w-4 h-4 mr-2" />
-                {hasPreviousFolderName ? "Choose a Different Folder" : "Select Save Folder"}
-              </>
-            )}
+            <HardDrive className="w-4 h-4 mr-2" />
+            {isMobile || !hasFileSystemAccess
+              ? "Continue with Local Storage"
+              : "Skip for Now (Use Local Storage)"}
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Your tasks will be saved as a JSON file in the selected folder.
-            <br />
-            Changes are saved automatically in real-time.
+            {isMobile || !hasFileSystemAccess ? (
+              <>
+                Tasks are saved in your browser.
+                <br />
+                Clear browser data will remove your tasks.
+              </>
+            ) : (
+              <>
+                You can set up folder sync anytime in Settings.
+                <br />
+                Local storage saves tasks in this browser only.
+              </>
+            )}
           </p>
         </div>
       </DialogContent>
