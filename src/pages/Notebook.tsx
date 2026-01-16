@@ -320,22 +320,31 @@ const Notebook = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-        <div className="flex items-center gap-4 px-4 py-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-2 flex-1">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">Notebook</h1>
-          </div>
-          <ThemeToggle />
-        </div>
-      </header>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar
+          projects={projects}
+          selectedProjectId={null}
+          taskCounts={taskCounts}
+          onSelectProject={(projectId) => navigate("/", { state: { selectedProjectId: projectId } })}
+          onAddProject={addProject}
+          onUpdateProject={updateProject}
+          onDeleteProject={deleteProject}
+        />
+        <main className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+            <div className="flex items-center gap-4 px-4 py-3">
+              <SidebarTrigger />
+              <div className="flex items-center gap-2 flex-1">
+                <BookOpen className="h-5 w-5 text-primary" />
+                <h1 className="text-xl font-semibold text-foreground">Notebook</h1>
+              </div>
+              <ThemeToggle />
+            </div>
+          </header>
 
-      <div className="max-w-6xl mx-auto px-4 py-6">
+          <div className="max-w-6xl mx-auto px-4 py-6 w-full">
         {/* Search */}
         <div className="relative mb-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -568,10 +577,10 @@ const Notebook = () => {
             </Card>
           </div>
         </div>
-          </div>
-        </main>
       </div>
-    </SidebarProvider>
+    </main>
+  </div>
+</SidebarProvider>
   );
 };
 
