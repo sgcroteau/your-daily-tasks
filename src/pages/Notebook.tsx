@@ -326,7 +326,7 @@ const Notebook = () => {
           projects={projects}
           selectedProjectId={null}
           taskCounts={taskCounts}
-          onSelectProject={(projectId) => navigate("/", { state: { selectedProjectId: projectId } })}
+          onSelectProject={(projectId: string | null) => navigate("/", { state: { selectedProjectId: projectId } })}
           onAddProject={addProject}
           onUpdateProject={updateProject}
           onDeleteProject={deleteProject}
