@@ -51,7 +51,11 @@ import {
   ArrowUpDown,
   Filter,
   Tag,
+  FolderSync,
+  X,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type SortOption = "none" | "priority-high" | "priority-low" | "date-asc" | "date-desc";
@@ -91,6 +95,8 @@ const Index = () => {
     autoSaveMode,
     setAutoSaveMode,
     hasPreviousFolderName,
+    skippedSetup,
+    skipSetup,
   } = useHistoryStorage(tasks, setTasks, isLoaded);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -405,9 +411,10 @@ const Index = () => {
   return (
     <>
       <SaveLocationDialog
-        isOpen={isLoaded && !isConnected && !folderName}
+        isOpen={isLoaded && !isConnected && !folderName && !skippedSetup}
         onSelectFolder={selectFolder}
         onLoadFromFolder={loadFromFolder}
+        onSkip={skipSetup}
         isConnected={isConnected}
         folderName={folderName}
         hasPreviousFolderName={hasPreviousFolderName}
@@ -473,6 +480,32 @@ const Index = () => {
               />
             </div>
           </header>
+
+          {/* Reminder banner for skipped setup */}
+          {skippedSetup && !isConnected && (
+            <div className="bg-muted/50 border-b border-border">
+              <div className="max-w-xl mx-auto px-4 py-2 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FolderSync className="w-4 h-4" />
+                  <span>Tasks are saved locally. Set up folder sync in Settings for backup.</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    // Open settings dialog - we need to trigger it
+                    const settingsButton = document.querySelector('[data-settings-trigger]');
+                    if (settingsButton instanceof HTMLElement) {
+                      settingsButton.click();
+                    }
+                  }}
+                >
+                  Set Up
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           <div className="max-w-xl mx-auto px-4 py-8">
