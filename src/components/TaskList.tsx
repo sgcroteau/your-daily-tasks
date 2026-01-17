@@ -2,7 +2,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Task, TaskLabel } from "@/types/task";
+import { Task, TaskLabel, QuickNote } from "@/types/task";
 import DraggableTaskItem from "./DraggableTaskItem";
 
 interface TaskListProps {
@@ -14,9 +14,18 @@ interface TaskListProps {
   onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
   searchQuery?: string;
   labels: TaskLabel[];
+  quickNotes?: QuickNote[];
 }
 
-const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks, searchQuery = "", labels }: TaskListProps) => {
+const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTasks, searchQuery = "", labels, quickNotes = [] }: TaskListProps) => {
+  // Count pinned notes per task
+  const pinnedNotesMap = quickNotes.reduce((acc, note) => {
+    if (note.pinnedToTaskId) {
+      acc[note.pinnedToTaskId] = (acc[note.pinnedToTaskId] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
   if (tasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -58,6 +67,7 @@ const TaskList = ({ tasks, onToggle, onDelete, onOpen, onReorder, onUpdateSubTas
               onUpdateSubTasks={onUpdateSubTasks}
               searchQuery={searchQuery}
               labels={labels}
+              pinnedNotesCount={pinnedNotesMap[task.id] || 0}
             />
           </div>
         ))}

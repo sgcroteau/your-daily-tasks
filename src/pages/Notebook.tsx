@@ -12,6 +12,7 @@ import {
   Network,
   CornerDownRight,
   GitBranch,
+  StickyNote,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { useTaskStorage } from "@/hooks/useTaskStorage";
 import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
-import { Task, TaskNote, Project, TaskLabel } from "@/types/task";
+import { useQuickNoteStorage } from "@/hooks/useQuickNoteStorage";
+import { Task, TaskNote, Project, TaskLabel, QuickNote, QUICK_NOTE_COLORS, QUICK_NOTE_COLORS_DARK } from "@/types/task";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import HighlightText from "@/components/HighlightText";
@@ -33,11 +35,12 @@ import NotebookGraph from "@/components/NotebookGraph";
 
 interface NotebookEntry {
   id: string;
-  type: "task" | "note";
+  type: "task" | "note" | "quicknote";
   title: string;
   content: string;
-  task: Task;
+  task?: Task;
   note?: TaskNote;
+  quickNote?: QuickNote;
   projectId: string | null;
   labelIds: string[];
   createdAt: Date;
@@ -45,6 +48,7 @@ interface NotebookEntry {
   depth: number; // Task tree depth level
   parentId: string | null; // For subtask hierarchy visualization
   hasSubtasks: boolean;
+  color?: string; // For quick notes
 }
 
 // Extract keywords from text for relation mapping
@@ -69,7 +73,7 @@ const flattenTasks = (tasks: Task[], parentId: string | null = null, depth: numb
 };
 
 // Build notebook entries from tasks
-const buildNotebookEntries = (tasks: Task[]): NotebookEntry[] => {
+const buildNotebookEntries = (tasks: Task[], quickNotes: QuickNote[]): NotebookEntry[] => {
   const flatTasks = flattenTasks(tasks);
   const entries: NotebookEntry[] = [];
 
@@ -110,6 +114,26 @@ const buildNotebookEntries = (tasks: Task[]): NotebookEntry[] => {
         hasSubtasks: false,
       });
     }
+  }
+
+  // Add quick notes as entries
+  for (const qn of quickNotes) {
+    const qnKeywords = extractKeywords(qn.content);
+    entries.push({
+      id: `quicknote-${qn.id}`,
+      type: "quicknote",
+      title: "Quick Note",
+      content: qn.content,
+      quickNote: qn,
+      projectId: qn.projectId,
+      labelIds: [],
+      createdAt: qn.createdAt,
+      keywords: qnKeywords,
+      depth: 0,
+      parentId: qn.pinnedToTaskId,
+      hasSubtasks: false,
+      color: qn.color,
+    });
   }
 
   return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -170,11 +194,15 @@ const Notebook = () => {
   const { tasks } = useTaskStorage();
   const { projects, addProject, updateProject, deleteProject } = useProjectStorage();
   const { labels } = useLabelStorage();
+  const { quickNotes } = useQuickNoteStorage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntry, setSelectedEntry] = useState<NotebookEntry | null>(null);
   const [viewMode, setViewMode] = useState<"timeline" | "project" | "graph">(
     "timeline"
   );
+
+  // Check for dark mode
+  const isDark = typeof window !== "undefined" && document.documentElement.classList.contains("dark");
 
   const taskCounts = useMemo(() => {
     const counts = { inbox: 0, byProject: {} as Record<string, number> };
@@ -188,7 +216,7 @@ const Notebook = () => {
     return counts;
   }, [tasks]);
 
-  const allEntries = useMemo(() => buildNotebookEntries(tasks), [tasks]);
+  const allEntries = useMemo(() => buildNotebookEntries(tasks, quickNotes), [tasks, quickNotes]);
 
   const filteredEntries = useMemo(() => {
     if (!searchQuery.trim()) return allEntries;
@@ -222,16 +250,30 @@ const Notebook = () => {
     return labels.find(l => l.id === labelId);
   };
 
-  const renderEntry = (entry: NotebookEntry, showRelated = false) => (
+  // Get display color for quick notes based on theme
+  const getQuickNoteDisplayColor = (color: string) => {
+    if (!isDark) return color;
+    const index = QUICK_NOTE_COLORS.indexOf(color);
+    return index >= 0 ? QUICK_NOTE_COLORS_DARK[index] : color;
+  };
+
+  const renderEntry = (entry: NotebookEntry, showRelated = false) => {
+    const isQuickNote = entry.type === "quicknote";
+    const displayColor = isQuickNote && entry.color ? getQuickNoteDisplayColor(entry.color) : undefined;
+    
+    return (
     <Card 
       key={entry.id}
       className={cn(
         "cursor-pointer transition-all hover:shadow-md",
         selectedEntry?.id === entry.id && "ring-2 ring-primary",
-        entry.depth > 0 && "border-l-4 border-l-primary/30"
+        entry.depth > 0 && !isQuickNote && "border-l-4 border-l-primary/30",
+        isQuickNote && "border-l-4"
       )}
       style={{
-        marginLeft: entry.depth > 0 ? `${entry.depth * 16}px` : undefined,
+        marginLeft: entry.depth > 0 && !isQuickNote ? `${entry.depth * 16}px` : undefined,
+        borderLeftColor: isQuickNote ? displayColor : undefined,
+        backgroundColor: isQuickNote ? `${displayColor}20` : undefined,
       }}
       onClick={() => setSelectedEntry(entry)}
     >
@@ -239,7 +281,7 @@ const Notebook = () => {
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             {/* Tree hierarchy indicator */}
-            {entry.depth > 0 && (
+            {entry.depth > 0 && !isQuickNote && (
               <div className="flex items-center gap-0.5 text-muted-foreground mr-1">
                 <CornerDownRight className="h-3 w-3" />
                 <span className="text-[10px] font-medium">L{entry.depth}</span>
@@ -247,6 +289,8 @@ const Notebook = () => {
             )}
             {entry.type === "task" ? (
               <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+            ) : entry.type === "quicknote" ? (
+              <StickyNote className="h-4 w-4 shrink-0" style={{ color: displayColor }} />
             ) : (
               <BookOpen className="h-4 w-4 text-muted-foreground shrink-0" />
             )}
@@ -255,13 +299,18 @@ const Notebook = () => {
             </CardTitle>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {isQuickNote && (
+              <Badge variant="outline" className="text-[10px] px-1.5 py-0" style={{ borderColor: displayColor, color: displayColor }}>
+                Quick Note
+              </Badge>
+            )}
             {entry.hasSubtasks && (
               <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-0.5">
                 <GitBranch className="h-2.5 w-2.5" />
                 Tree
               </Badge>
             )}
-            {entry.task.completed && (
+            {entry.task?.completed && (
               <Badge variant="secondary" className="text-xs">Completed</Badge>
             )}
           </div>
@@ -318,6 +367,7 @@ const Notebook = () => {
       </CardContent>
     </Card>
   );
+  };
 
   return (
     <SidebarProvider>

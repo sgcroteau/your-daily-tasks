@@ -13,7 +13,7 @@ import {
   Palette
 } from "lucide-react";
 import { format } from "date-fns";
-import { QuickNote, Task, QUICK_NOTE_COLORS } from "@/types/task";
+import { QuickNote, Task, QUICK_NOTE_COLORS, QUICK_NOTE_COLORS_DARK } from "@/types/task";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -28,8 +28,13 @@ interface DraggableQuickNoteProps {
   onUpdate: (id: string, updates: Partial<Pick<QuickNote, "content" | "color">>) => void;
   onDelete: (id: string) => void;
   onUnpin: (id: string) => void;
-  isDark?: boolean;
 }
+
+// Detect if we're in dark mode
+const useIsDarkMode = () => {
+  if (typeof window === "undefined") return false;
+  return document.documentElement.classList.contains("dark");
+};
 
 export const DraggableQuickNote = ({
   note,
@@ -37,12 +42,21 @@ export const DraggableQuickNote = ({
   onUpdate,
   onDelete,
   onUnpin,
-  isDark = false,
 }: DraggableQuickNoteProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(note.content);
   const [isDeleting, setIsDeleting] = useState(false);
   const [colorPopoverOpen, setColorPopoverOpen] = useState(false);
+  const isDark = useIsDarkMode();
+
+  // Get the appropriate color palette based on theme
+  const colorPalette = isDark ? QUICK_NOTE_COLORS_DARK : QUICK_NOTE_COLORS;
+  
+  // Find index of current color to get corresponding dark/light version
+  const currentColorIndex = QUICK_NOTE_COLORS.indexOf(note.color);
+  const displayColor = isDark && currentColorIndex >= 0 
+    ? QUICK_NOTE_COLORS_DARK[currentColorIndex] 
+    : note.color;
 
   const {
     attributes,
@@ -76,15 +90,15 @@ export const DraggableQuickNote = ({
   };
 
   const handleColorChange = (color: string) => {
-    onUpdate(note.id, { color });
+    // Always store the light mode color as the canonical color
+    const lightColorIndex = QUICK_NOTE_COLORS_DARK.indexOf(color);
+    const colorToStore = lightColorIndex >= 0 ? QUICK_NOTE_COLORS[lightColorIndex] : color;
+    onUpdate(note.id, { color: colorToStore });
     setColorPopoverOpen(false);
   };
 
-  // Get contrasting text color based on background
-  const getTextColor = (bgColor: string) => {
-    // For light pastel colors, use dark text
-    return isDark ? "text-white" : "text-foreground";
-  };
+  // Get text color that contrasts with background
+  const textColorClass = isDark ? "text-white" : "text-foreground";
 
   return (
     <div
@@ -99,19 +113,19 @@ export const DraggableQuickNote = ({
       <div
         className={cn(
           "group relative rounded-xl p-4 shadow-sm hover:shadow-md transition-all duration-200 border-2 border-transparent hover:border-primary/20",
-          "bg-gradient-to-br from-white/50 to-transparent"
+          isDark ? "bg-gradient-to-br from-white/10 to-transparent" : "bg-gradient-to-br from-white/50 to-transparent"
         )}
         style={{ 
-          backgroundColor: note.color,
-          boxShadow: `0 4px 12px -4px ${note.color}80`
+          backgroundColor: displayColor,
+          boxShadow: `0 4px 12px -4px ${displayColor}80`
         }}
       >
         {/* Decorative corner fold */}
         <div 
           className="absolute top-0 right-0 w-6 h-6"
           style={{
-            background: `linear-gradient(135deg, transparent 50%, ${note.color} 50%)`,
-            filter: "brightness(0.9)",
+            background: `linear-gradient(135deg, transparent 50%, ${displayColor} 50%)`,
+            filter: isDark ? "brightness(1.2)" : "brightness(0.9)",
             borderTopRightRadius: "0.75rem",
           }}
         />
@@ -122,7 +136,7 @@ export const DraggableQuickNote = ({
           {...listeners}
           className={cn(
             "absolute left-1 top-1/2 -translate-y-1/2 p-1 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity",
-            getTextColor(note.color)
+            textColorClass
           )}
           onClick={(e) => e.stopPropagation()}
         >
@@ -163,7 +177,7 @@ export const DraggableQuickNote = ({
             </div>
           ) : (
             <>
-              <p className={cn("text-sm whitespace-pre-wrap leading-relaxed", getTextColor(note.color))}>
+              <p className={cn("text-sm whitespace-pre-wrap leading-relaxed", textColorClass)}>
                 {note.content}
               </p>
               
@@ -178,8 +192,8 @@ export const DraggableQuickNote = ({
               )}
 
               {/* Footer with date and actions */}
-              <div className="flex items-center justify-between mt-3 pt-2 border-t border-black/10">
-                <span className={cn("text-xs opacity-60", getTextColor(note.color))}>
+              <div className={cn("flex items-center justify-between mt-3 pt-2", isDark ? "border-t border-white/20" : "border-t border-black/10")}>
+                <span className={cn("text-xs opacity-60", textColorClass)}>
                   {format(note.updatedAt, "MMM d, h:mm a")}
                 </span>
                 
@@ -188,7 +202,7 @@ export const DraggableQuickNote = ({
                   <Popover open={colorPopoverOpen} onOpenChange={setColorPopoverOpen}>
                     <PopoverTrigger asChild>
                       <button
-                        className="p-1.5 rounded-md hover:bg-black/10 transition-colors"
+                        className={cn("p-1.5 rounded-md transition-colors", isDark ? "hover:bg-white/20" : "hover:bg-black/10")}
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Palette className="w-3.5 h-3.5 opacity-70" />
@@ -196,13 +210,13 @@ export const DraggableQuickNote = ({
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-2" align="end">
                       <div className="flex flex-wrap gap-2 max-w-[160px]">
-                        {QUICK_NOTE_COLORS.map((color) => (
+                        {colorPalette.map((color, index) => (
                           <button
                             key={color}
                             onClick={() => handleColorChange(color)}
                             className={cn(
                               "w-6 h-6 rounded-full transition-all hover:scale-110",
-                              note.color === color && "ring-2 ring-offset-2 ring-primary"
+                              (isDark ? QUICK_NOTE_COLORS_DARK[currentColorIndex] : note.color) === color && "ring-2 ring-offset-2 ring-primary"
                             )}
                             style={{ backgroundColor: color }}
                           />
@@ -214,7 +228,7 @@ export const DraggableQuickNote = ({
                   {/* Edit button */}
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="p-1.5 rounded-md hover:bg-black/10 transition-colors"
+                    className={cn("p-1.5 rounded-md transition-colors", isDark ? "hover:bg-white/20" : "hover:bg-black/10")}
                   >
                     <Pencil className="w-3.5 h-3.5 opacity-70" />
                   </button>
@@ -223,7 +237,7 @@ export const DraggableQuickNote = ({
                   {pinnedTask && (
                     <button
                       onClick={() => onUnpin(note.id)}
-                      className="p-1.5 rounded-md hover:bg-black/10 transition-colors"
+                      className={cn("p-1.5 rounded-md transition-colors", isDark ? "hover:bg-white/20" : "hover:bg-black/10")}
                     >
                       <PinOff className="w-3.5 h-3.5 opacity-70" />
                     </button>
@@ -246,7 +260,7 @@ export const DraggableQuickNote = ({
         <StickyNote 
           className={cn(
             "absolute bottom-2 right-2 w-8 h-8 opacity-10",
-            getTextColor(note.color)
+            textColorClass
           )} 
         />
       </div>
