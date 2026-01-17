@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent, useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown, ArrowDown, Minus, ArrowUp, AlertTriangle, Repeat } from "lucide-react";
+import { Check, Trash2, ChevronRight, AlertCircle, GripVertical, ChevronDown, ArrowDown, Minus, ArrowUp, AlertTriangle, Repeat, StickyNote } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
 import { Task, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG } from "@/types/task";
 import { cn } from "@/lib/utils";
@@ -18,14 +18,21 @@ interface DraggableTaskItemProps {
   onUpdateSubTasks: (taskId: string, subTasks: Task[]) => void;
   searchQuery?: string;
   labels: TaskLabel[];
+  pinnedNotesCount?: number;
+  isDropTarget?: boolean;
 }
 
-const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks, searchQuery = "", labels }: DraggableTaskItemProps) => {
+const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks, searchQuery = "", labels, pinnedNotesCount = 0, isDropTarget = false }: DraggableTaskItemProps) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [justCompleted, setJustCompleted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   
   const taskLabels = labels.filter((l) => task.labelIds?.includes(l.id));
+
+  // Droppable for pinning quick notes
+  const { isOver: isDropOver, setNodeRef: setDropRef } = useDroppable({ 
+    id: `task-drop-${task.id}` 
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -86,7 +93,10 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node);
+        setDropRef(node);
+      }}
       style={style}
       className={cn(
         "transition-all duration-200",
@@ -98,7 +108,8 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
         onClick={() => onOpen(task)}
         className={cn(
           "group flex items-center gap-3 p-4 bg-card border border-border rounded-lg transition-all duration-200 hover:shadow-hover hover:border-primary/20 cursor-pointer",
-          task.depth > 0 && "border-l-2 border-l-primary/30"
+          task.depth > 0 && "border-l-2 border-l-primary/30",
+          isDropOver && "ring-2 ring-primary ring-dashed bg-primary/5"
         )}
         style={{ marginLeft: task.depth > 0 ? `${task.depth * 1.5}rem` : 0 }}
       >
@@ -161,6 +172,12 @@ const DraggableTaskItem = ({ task, onToggle, onDelete, onOpen, onUpdateSubTasks,
             {task.attachments.length > 0 && (
               <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                 {task.attachments.length} file{task.attachments.length !== 1 && "s"}
+              </span>
+            )}
+            {pinnedNotesCount > 0 && (
+              <span className="text-xs text-amber-600 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-400 px-1.5 py-0.5 rounded flex items-center gap-1">
+                <StickyNote className="w-3 h-3" />
+                {pinnedNotesCount}
               </span>
             )}
             {hasSubTasks && (

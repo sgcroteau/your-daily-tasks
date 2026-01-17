@@ -4,11 +4,12 @@ import { cn } from "@/lib/utils";
 interface GraphNode {
   id: string;
   title: string;
-  type: "task" | "note";
+  type: "task" | "note" | "quicknote";
   projectId: string | null;
   x: number;
   y: number;
   connections: string[];
+  color?: string;
 }
 
 interface GraphEdge {
@@ -19,12 +20,13 @@ interface GraphEdge {
 
 interface NotebookEntry {
   id: string;
-  type: "task" | "note";
+  type: "task" | "note" | "quicknote";
   title: string;
   content: string;
   projectId: string | null;
   labelIds: string[];
   keywords: string[];
+  color?: string;
 }
 
 interface NotebookGraphProps {
@@ -149,7 +151,8 @@ const NotebookGraph = ({ entries, projects, onSelectEntry, selectedEntryId }: No
       y: 0,
       connections: edgeList
         .filter(e => e.from === entry.id || e.to === entry.id)
-        .map(e => e.from === entry.id ? e.to : e.from)
+        .map(e => e.from === entry.id ? e.to : e.from),
+      color: entry.color,
     }));
     
     // Apply force-directed layout
@@ -224,6 +227,10 @@ const NotebookGraph = ({ entries, projects, onSelectEntry, selectedEntryId }: No
           <div className="w-3 h-3 rounded-sm bg-primary" />
           <span>Note</span>
         </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rotate-45 bg-amber-400" />
+          <span>Quick Note</span>
+        </div>
         <div className="text-muted-foreground mt-1">
           Scroll to zoom • Drag to pan
         </div>
@@ -279,7 +286,7 @@ const NotebookGraph = ({ entries, projects, onSelectEntry, selectedEntryId }: No
             const isHovered = hoveredNode === node.id;
             const isConnected = highlightedConnections.includes(node.id);
             const isActive = isSelected || isHovered;
-            const color = getProjectColor(node.projectId);
+            const color = node.type === "quicknote" && node.color ? node.color : getProjectColor(node.projectId);
             
             return (
               <g
@@ -304,6 +311,19 @@ const NotebookGraph = ({ entries, projects, onSelectEntry, selectedEntryId }: No
                 {node.type === "task" ? (
                   <circle
                     r={isActive ? 10 : isConnected ? 8 : 6}
+                    fill={color}
+                    stroke={isSelected ? "hsl(var(--foreground))" : "transparent"}
+                    strokeWidth={2}
+                    className="transition-all duration-200"
+                    opacity={activeNodeId && !isActive && !isConnected ? 0.3 : 1}
+                  />
+                ) : node.type === "quicknote" ? (
+                  <rect
+                    x={isActive ? -8 : isConnected ? -6 : -5}
+                    y={isActive ? -8 : isConnected ? -6 : -5}
+                    width={isActive ? 16 : isConnected ? 12 : 10}
+                    height={isActive ? 16 : isConnected ? 12 : 10}
+                    transform="rotate(45)"
                     fill={color}
                     stroke={isSelected ? "hsl(var(--foreground))" : "transparent"}
                     strokeWidth={2}

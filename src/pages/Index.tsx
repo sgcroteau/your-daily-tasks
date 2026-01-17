@@ -670,6 +670,7 @@ const Index = () => {
                 onUpdateSubTasks={updateSubTasks}
                 searchQuery={debouncedSearchQuery}
                 labels={labels}
+                quickNotes={quickNotes}
               />
 
               {filteredTasks.length === 0 && (
