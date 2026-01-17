@@ -51,12 +51,44 @@ export interface Task {
   recurrence: RecurrenceConfig | null; // Recurring task configuration
 }
 
+export interface QuickNote {
+  id: string;
+  content: string;
+  color: string; // Background color for the note
+  projectId: string | null; // null means Inbox
+  pinnedToTaskId: string | null; // If pinned to a task
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Project {
   id: string;
   name: string;
   color: string;
   createdAt: Date;
 }
+
+export const QUICK_NOTE_COLORS = [
+  "#fef3c7", // amber-100
+  "#fce7f3", // pink-100
+  "#dbeafe", // blue-100
+  "#d1fae5", // emerald-100
+  "#ede9fe", // violet-100
+  "#fed7aa", // orange-100
+  "#e0e7ff", // indigo-100
+  "#ccfbf1", // teal-100
+];
+
+export const QUICK_NOTE_COLORS_DARK = [
+  "#78350f", // amber-900
+  "#831843", // pink-900
+  "#1e3a8a", // blue-900
+  "#064e3b", // emerald-900
+  "#4c1d95", // violet-900
+  "#7c2d12", // orange-900
+  "#312e81", // indigo-900
+  "#134e4a", // teal-900
+];
 
 export const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string }> = {
   "todo": { label: "To Do", color: "bg-muted text-muted-foreground" },

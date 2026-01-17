@@ -26,6 +26,7 @@ import { useProjectStorage } from "@/hooks/useProjectStorage";
 import { useLabelStorage } from "@/hooks/useLabelStorage";
 import { useHistoryStorage } from "@/hooks/useHistoryStorage";
 import { usePreferencesStorage } from "@/hooks/usePreferencesStorage";
+import { useQuickNoteStorage } from "@/hooks/useQuickNoteStorage";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   Task,
@@ -34,6 +35,8 @@ import {
   PRIORITY_CONFIG,
   getNextDueDate,
 } from "@/types/task";
+import { QuickNoteInput } from "@/components/QuickNoteInput";
+import { QuickNotesList } from "@/components/QuickNotesList";
 import { filterTasksBySearch } from "@/lib/searchUtils";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import {
@@ -78,6 +81,14 @@ const Index = () => {
     useProjectStorage();
   const { labels, addLabel } = useLabelStorage();
   const { preferences, updatePreference } = usePreferencesStorage();
+  const { 
+    quickNotes, 
+    addQuickNote, 
+    updateQuickNote, 
+    deleteQuickNote, 
+    pinToTask,
+    moveToProject,
+  } = useQuickNoteStorage();
   const {
     undo,
     redo,
@@ -134,6 +145,11 @@ const Index = () => {
     });
     return counts;
   }, [tasks]);
+
+  // Filter quick notes by selected project
+  const filteredQuickNotes = useMemo(() => {
+    return quickNotes.filter(note => note.projectId === selectedProjectId);
+  }, [quickNotes, selectedProjectId]);
 
   // Helper to check if a task tree is fully completed
   const isFullyCompleted = useCallback((task: Task): boolean => {
@@ -338,7 +354,28 @@ const Index = () => {
     }
     if (overId.startsWith("sidebar-project-")) {
       const projectId = overId.replace("sidebar-project-", "");
-      moveTaskToProject(taskId, projectId);
+      // Check if it's a quick note being dropped
+      if (taskId.startsWith("quicknote-")) {
+        const noteId = taskId.replace("quicknote-", "");
+        moveToProject(noteId, projectId);
+      } else {
+        moveTaskToProject(taskId, projectId);
+      }
+      return;
+    }
+
+    // Handle dropping quick note on inbox
+    if (overId === "sidebar-inbox" && taskId.startsWith("quicknote-")) {
+      const noteId = taskId.replace("quicknote-", "");
+      moveToProject(noteId, null);
+      return;
+    }
+
+    // Handle pinning quick note to a task
+    if (overId.startsWith("task-drop-") && taskId.startsWith("quicknote-")) {
+      const noteId = taskId.replace("quicknote-", "");
+      const targetTaskId = overId.replace("task-drop-", "");
+      pinToTask(noteId, targetTaskId);
       return;
     }
 
@@ -516,12 +553,27 @@ const Index = () => {
                 placeholder="Search tasks, notes, subtasks..."
               />
               
-              <TaskInput 
-                onAddTask={addTask} 
-                projectId={selectedProjectId} 
-                labels={labels}
-                onCreateLabel={addLabel}
-                defaultPriority={preferences.defaultPriority}
+              <div className="flex items-center gap-2">
+                <TaskInput 
+                  onAddTask={addTask} 
+                  projectId={selectedProjectId} 
+                  labels={labels}
+                  onCreateLabel={addLabel}
+                  defaultPriority={preferences.defaultPriority}
+                />
+                <QuickNoteInput
+                  onAdd={(content, color) => addQuickNote(content, selectedProjectId, color)}
+                  projectId={selectedProjectId}
+                />
+              </div>
+
+              {/* Quick Notes Section */}
+              <QuickNotesList
+                notes={filteredQuickNotes}
+                tasks={tasks}
+                onUpdate={updateQuickNote}
+                onDelete={deleteQuickNote}
+                onUnpin={(id) => pinToTask(id, null)}
               />
               
               {/* Filter and Sort Controls */}
