@@ -27,6 +27,7 @@ import { useLabelStorage } from "@/hooks/useLabelStorage";
 import { useHistoryStorage } from "@/hooks/useHistoryStorage";
 import { usePreferencesStorage } from "@/hooks/usePreferencesStorage";
 import { useQuickNoteStorage } from "@/hooks/useQuickNoteStorage";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   Task,
@@ -119,6 +120,12 @@ const Index = () => {
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [labelFilter, setLabelFilter] = useState<string>("all");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [quickNotePopoverOpen, setQuickNotePopoverOpen] = useState(false);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onQuickNote: () => setQuickNotePopoverOpen(true),
+  });
 
   // When coming back from Notebook, restore selected project (Inbox=null)
   useEffect(() => {
@@ -564,6 +571,8 @@ const Index = () => {
                 <QuickNoteInput
                   onAdd={(content, color) => addQuickNote(content, selectedProjectId, color)}
                   projectId={selectedProjectId}
+                  open={quickNotePopoverOpen}
+                  onOpenChange={setQuickNotePopoverOpen}
                 />
               </div>
 
@@ -698,6 +707,10 @@ const Index = () => {
           projects={projects}
           labels={labels}
           onCreateLabel={addLabel}
+          quickNotes={quickNotes}
+          onUpdateQuickNote={updateQuickNote}
+          onDeleteQuickNote={deleteQuickNote}
+          onUnpinQuickNote={(id) => pinToTask(id, null)}
         />
 
         <DragOverlay>

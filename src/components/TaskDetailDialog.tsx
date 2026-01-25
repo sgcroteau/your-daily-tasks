@@ -24,7 +24,8 @@ import { Button } from "@/components/ui/button";
 import TaskNotes from "./TaskNotes";
 import FileAttachment from "./FileAttachment";
 import LabelSelector from "./LabelSelector";
-import { Task, TaskStatus, TaskPriority, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project, RecurrenceType, RecurrenceConfig, RECURRENCE_OPTIONS } from "@/types/task";
+import { PinnedQuickNotes } from "./PinnedQuickNotes";
+import { Task, TaskStatus, TaskPriority, TaskLabel, STATUS_CONFIG, PRIORITY_CONFIG, TaskNote, TaskAttachment, MAX_DEPTH, createEmptyTask, Project, RecurrenceType, RecurrenceConfig, RECURRENCE_OPTIONS, QuickNote } from "@/types/task";
 import { cn } from "@/lib/utils";
 
 interface TaskDetailDialogProps {
@@ -37,6 +38,10 @@ interface TaskDetailDialogProps {
   projects?: Project[];
   labels: TaskLabel[];
   onCreateLabel: (name: string, color: string) => TaskLabel;
+  quickNotes?: QuickNote[];
+  onUpdateQuickNote?: (id: string, updates: Partial<Pick<QuickNote, "content" | "color">>) => void;
+  onDeleteQuickNote?: (id: string) => void;
+  onUnpinQuickNote?: (id: string) => void;
 }
 
 // Helper to collect all notes from a task and its subtasks recursively
@@ -86,6 +91,10 @@ const TaskDetailDialog = ({
   projects = [],
   labels,
   onCreateLabel,
+  quickNotes = [],
+  onUpdateQuickNote,
+  onDeleteQuickNote,
+  onUnpinQuickNote,
 }: TaskDetailDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -285,6 +294,9 @@ const TaskDetailDialog = ({
     ...note,
     originTaskTitle: taskTitleMap.get(note.originTaskId) || note.originTaskTitle,
   }));
+
+  // Get pinned quick notes for this task
+  const pinnedQuickNotes = quickNotes.filter(qn => qn.pinnedToTaskId === task.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -566,6 +578,16 @@ const TaskDetailDialog = ({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Pinned Quick Notes */}
+          {pinnedQuickNotes.length > 0 && onUpdateQuickNote && onDeleteQuickNote && onUnpinQuickNote && (
+            <PinnedQuickNotes
+              notes={pinnedQuickNotes}
+              onUpdate={onUpdateQuickNote}
+              onDelete={onDeleteQuickNote}
+              onUnpin={onUnpinQuickNote}
+            />
           )}
 
           {/* Notes */}

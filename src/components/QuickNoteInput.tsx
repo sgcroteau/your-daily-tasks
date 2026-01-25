@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { StickyNote, Plus, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { StickyNote, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { QUICK_NOTE_COLORS } from "@/types/task";
@@ -9,16 +9,34 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface QuickNoteInputProps {
   onAdd: (content: string, color: string) => void;
   projectId: string | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const QuickNoteInput = ({ onAdd, projectId }: QuickNoteInputProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const QuickNoteInput = ({ onAdd, projectId, open: controlledOpen, onOpenChange }: QuickNoteInputProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [content, setContent] = useState("");
   const [selectedColor, setSelectedColor] = useState(QUICK_NOTE_COLORS[0]);
+
+  const isOpen = controlledOpen ?? internalOpen;
+  const setIsOpen = onOpenChange ?? setInternalOpen;
+
+  // Reset content when popover opens
+  useEffect(() => {
+    if (isOpen) {
+      setContent("");
+      setSelectedColor(QUICK_NOTE_COLORS[0]);
+    }
+  }, [isOpen]);
 
   const handleAdd = () => {
     if (content.trim()) {
@@ -31,16 +49,23 @@ export const QuickNoteInput = ({ onAdd, projectId }: QuickNoteInputProps) => {
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 border-dashed hover:border-solid hover:bg-accent"
-        >
-          <StickyNote className="h-4 w-4" />
-          Quick Note
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-dashed hover:border-solid hover:bg-accent"
+            >
+              <StickyNote className="h-4 w-4" />
+              Quick Note
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          <p>Add a quick note <kbd className="ml-1 px-1.5 py-0.5 text-xs bg-muted rounded">Ctrl+N</kbd></p>
+        </TooltipContent>
+      </Tooltip>
       <PopoverContent className="w-80 p-3" align="start">
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -55,6 +80,12 @@ export const QuickNoteInput = ({ onAdd, projectId }: QuickNoteInputProps) => {
             className="min-h-[80px] resize-none"
             style={{ backgroundColor: `${selectedColor}40` }}
             autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                handleAdd();
+              }
+            }}
           />
           
           <div>
