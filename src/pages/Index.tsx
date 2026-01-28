@@ -57,6 +57,7 @@ import {
   Tag,
   FolderSync,
   X,
+  StickyNote,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -569,10 +570,16 @@ const Index = () => {
                   defaultPriority={preferences.defaultPriority}
                 />
                 <QuickNoteInput
-                  onAdd={(content, color) => addQuickNote(content, selectedProjectId, color)}
+                  onAdd={(content, color, pinnedToTaskId) => {
+                    const note = addQuickNote(content, selectedProjectId, color);
+                    if (pinnedToTaskId) {
+                      pinToTask(note.id, pinnedToTaskId);
+                    }
+                  }}
                   projectId={selectedProjectId}
                   open={quickNotePopoverOpen}
                   onOpenChange={setQuickNotePopoverOpen}
+                  tasks={tasks}
                 />
               </div>
 
@@ -714,10 +721,19 @@ const Index = () => {
         />
 
         <DragOverlay>
-          {activeTask ? (
-            <div className="bg-card border border-primary rounded-lg p-3 shadow-lg opacity-80">
-              <span className="text-sm font-medium">{activeTask.title}</span>
-            </div>
+          {activeTaskId ? (
+            activeTaskId.startsWith("quicknote-") ? (
+              <div className="bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 rounded-lg p-3 shadow-lg opacity-90">
+                <div className="flex items-center gap-2">
+                  <StickyNote className="h-4 w-4" />
+                  <span className="text-sm font-medium">Quick Note</span>
+                </div>
+              </div>
+            ) : activeTask ? (
+              <div className="bg-card border border-primary rounded-lg p-3 shadow-lg opacity-80">
+                <span className="text-sm font-medium">{activeTask.title}</span>
+              </div>
+            ) : null
           ) : null}
         </DragOverlay>
           </div>

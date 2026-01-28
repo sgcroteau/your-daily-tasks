@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { StickyNote, Plus } from "lucide-react";
+import { StickyNote, Plus, Pin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { QUICK_NOTE_COLORS } from "@/types/task";
+import { Task } from "@/types/task";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -14,35 +15,49 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface QuickNoteInputProps {
-  onAdd: (content: string, color: string) => void;
+  onAdd: (content: string, color: string, pinnedToTaskId?: string | null) => void;
   projectId: string | null;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  tasks?: Task[];
 }
 
-export const QuickNoteInput = ({ onAdd, projectId, open: controlledOpen, onOpenChange }: QuickNoteInputProps) => {
+export const QuickNoteInput = ({ onAdd, projectId, open: controlledOpen, onOpenChange, tasks = [] }: QuickNoteInputProps) => {
   const [internalOpen, setInternalOpen] = useState(false);
   const [content, setContent] = useState("");
   const [selectedColor, setSelectedColor] = useState(QUICK_NOTE_COLORS[0]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const isOpen = controlledOpen ?? internalOpen;
   const setIsOpen = onOpenChange ?? setInternalOpen;
+
+  // Filter tasks for current project (or inbox if projectId is null)
+  const availableTasks = tasks.filter(task => task.projectId === projectId && !task.completed);
 
   // Reset content when popover opens
   useEffect(() => {
     if (isOpen) {
       setContent("");
       setSelectedColor(QUICK_NOTE_COLORS[0]);
+      setSelectedTaskId(null);
     }
   }, [isOpen]);
 
   const handleAdd = () => {
     if (content.trim()) {
-      onAdd(content.trim(), selectedColor);
+      onAdd(content.trim(), selectedColor, selectedTaskId);
       setContent("");
       setSelectedColor(QUICK_NOTE_COLORS[0]);
+      setSelectedTaskId(null);
       setIsOpen(false);
     }
   };
@@ -104,6 +119,31 @@ export const QuickNoteInput = ({ onAdd, projectId, open: controlledOpen, onOpenC
               ))}
             </div>
           </div>
+
+          {/* Pin to Task selector */}
+          {availableTasks.length > 0 && (
+            <div>
+              <span className="text-xs text-muted-foreground mb-2 block">Pin to Task (optional)</span>
+              <Select value={selectedTaskId || "none"} onValueChange={(v) => setSelectedTaskId(v === "none" ? null : v)}>
+                <SelectTrigger className="w-full h-9 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Pin className="h-3.5 w-3.5 text-muted-foreground" />
+                    <SelectValue placeholder="Select a task to pin to..." />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground">No task (standalone note)</span>
+                  </SelectItem>
+                  {availableTasks.map((task) => (
+                    <SelectItem key={task.id} value={task.id}>
+                      <span className="truncate">{task.title}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           
           <Button
             size="sm"
@@ -112,7 +152,7 @@ export const QuickNoteInput = ({ onAdd, projectId, open: controlledOpen, onOpenC
             className="w-full"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Add Note
+            {selectedTaskId ? "Add & Pin to Task" : "Add Note"}
           </Button>
         </div>
       </PopoverContent>
